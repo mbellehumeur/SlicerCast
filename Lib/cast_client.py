@@ -531,6 +531,7 @@ class SlicerCastClient(CastClient):
         self._pending_dicom_send: Optional[Dict[str, Any]] = None
         self._skip_next_dicom_binary = False
         self._hub_channel_endpoint: str = ""
+        self._async_loop: Optional[asyncio.AbstractEventLoop] = None
 
         if self._options.auto_reconnect:
             self._reconnect_task = asyncio.create_task(self._reconnect_loop())
@@ -703,10 +704,13 @@ class SlicerCastClient(CastClient):
         self._ws = await http.ws_connect(
             normalized, max_msg_size=DICOM_WS_MAX_MSG_SIZE
         )
-        await self._ws.send_str(
-            json.dumps({"hub.channel.endpoint": normalized})
+        self._async_loop = asyncio.get_running_loop()
+        await self._safe_send_str(
+            json.dumps({"hub.channel.endpoint": normalized}),
+            reason="bind",
         )
         self._ws_task = asyncio.create_task(self._websocket_reader())
+        LOGGER.info("Cast websocket reader started (non-blocking hub I/O)")
         self._reconnect_fail_streak = 0
         self._emit_connection_state("connected")
 
@@ -723,15 +727,108 @@ class SlicerCastClient(CastClient):
         if self._ws and not self._ws.closed:
             await self._ws.close()
         self._ws = None
+        self._async_loop = None
+
+    @staticmethod
+    def _ws_outbound_label(payload: str) -> str:
+        try:
+            msg = json.loads(payload)
+        except json.JSONDecodeError:
+            return "non-json"
+        if msg.get("type") == "pong":
+            return "pong"
+        if msg.get("hub.channel.endpoint"):
+            return "bind"
+        event = msg.get("event")
+        if isinstance(event, dict):
+            hub_event = event.get("hub.event")
+            if isinstance(hub_event, str) and hub_event.strip():
+                return hub_event.strip()
+        msg_type = msg.get("type")
+        if isinstance(msg_type, str) and msg_type.strip():
+            return msg_type.strip()
+        return "json"
+
+    def _log_ws_send_task_result(self, task: "asyncio.Task[None]") -> None:
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            LOGGER.warning("Cast websocket outbound task failed: %s", exc)
+
+    async def _safe_send_str(self, payload: str, *, reason: str = "") -> None:
+        label = reason or self._ws_outbound_label(payload)
+        ws = self._ws
+        if ws is None or ws.closed:
+            LOGGER.debug("Cast websocket outbound skipped (%s): socket closed", label)
+            return
+        try:
+            await ws.send_str(payload)
+        except aiohttp.ClientConnectionResetError as exc:
+            LOGGER.warning(
+                "Cast websocket outbound failed (%s): connection reset (%s)",
+                label,
+                exc,
+            )
+        except (ConnectionError, OSError) as exc:
+            LOGGER.warning(
+                "Cast websocket outbound failed (%s): %s",
+                label,
+                exc,
+            )
+
+    def _schedule_ws_send_str(self, payload: str, *, reason: str = "") -> None:
+        loop = self._async_loop
+        if loop is None:
+            return
+        label = reason or self._ws_outbound_label(payload)
+
+        def start_send() -> None:
+            task = asyncio.create_task(
+                self._safe_send_str(payload, reason=label),
+                name=f"CastWsSend-{label}",
+            )
+            task.add_done_callback(self._log_ws_send_task_result)
+
+        try:
+            running = asyncio.get_running_loop()
+        except RuntimeError:
+            running = None
+        if running is loop:
+            start_send()
+        else:
+            loop.call_soon_threadsafe(start_send)
+
+    def _enqueue_message(self, cast_message: Dict[str, Any]) -> None:
+        try:
+            self._message_queue.put_nowait(cast_message)
+        except asyncio.QueueFull:
+            pass
+
+    def _schedule_enqueue_message(self, cast_message: Dict[str, Any]) -> None:
+        loop = self._async_loop
+        if loop is None:
+            self._enqueue_message(cast_message)
+            return
+        try:
+            running = asyncio.get_running_loop()
+        except RuntimeError:
+            running = None
+        if running is loop:
+            self._enqueue_message(cast_message)
+        else:
+            loop.call_soon_threadsafe(self._enqueue_message, cast_message)
 
     async def _websocket_reader(self) -> None:
         assert self._ws is not None
         try:
             async for msg in self._ws:
                 if msg.type == aiohttp.WSMsgType.TEXT:
-                    self._process_text_message(msg.data)
+                    await self._handle_websocket_text(msg.data)
                 elif msg.type == aiohttp.WSMsgType.BINARY:
-                    self._process_binary_message(msg.data)
+                    await asyncio.to_thread(
+                        self._process_binary_message, msg.data
+                    )
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     exc = self._ws.exception() if self._ws else None
                     LOGGER.warning("websocket protocol error: %s", exc)
@@ -797,23 +894,23 @@ class SlicerCastClient(CastClient):
             return
         self._deliver_message(pending)
 
-    def _process_text_message(self, event_data: str) -> None:
+    async def _handle_websocket_text(self, event_data: str) -> None:
         try:
             cast_message = json.loads(event_data)
         except json.JSONDecodeError:
             LOGGER.warning("invalid JSON on websocket")
             return
 
-        msg_type = cast_message.get("type")
-        if msg_type == "ping":
-            if self._ws and not self._ws.closed:
-                asyncio.create_task(
-                    self._ws.send_str(
-                        json.dumps({"type": "pong", "timestamp": _utc_timestamp()})
-                    )
-                )
+        if cast_message.get("type") == "ping":
+            await self._safe_send_str(
+                json.dumps({"type": "pong", "timestamp": _utc_timestamp()}),
+                reason="pong",
+            )
             return
 
+        self._process_parsed_text_message(cast_message)
+
+    def _process_parsed_text_message(self, cast_message: Dict[str, Any]) -> None:
         if cast_message.get("hub.mode"):
             return
 
@@ -830,8 +927,9 @@ class SlicerCastClient(CastClient):
         if cast_binary_transfer_waits_for_binary_frame(event):
             self._pending_dicom_send = cast_message
             LOGGER.info(
-                "dicom-send awaiting binary frame id=%s",
+                "Cast message awaiting binary frame id=%s event=%s",
                 cast_message.get("id", ""),
+                (event or {}).get("hub.event", ""),
             )
             return
 
@@ -840,10 +938,7 @@ class SlicerCastClient(CastClient):
     def _deliver_message(self, cast_message: Dict[str, Any]) -> None:
         if self._on_message:
             self._on_message(cast_message)
-        try:
-            self._message_queue.put_nowait(cast_message)
-        except asyncio.QueueFull:
-            pass
+        self._schedule_enqueue_message(cast_message)
 
     async def subscribe(self, *, emit_connecting: bool = True) -> int:
         topic = (self._session_cfg.topic or "").strip()
@@ -1063,7 +1158,9 @@ class SlicerCastClient(CastClient):
         }
         if self._session_cfg.actors:
             response["actor"] = self._session_cfg.actors[0]
-        asyncio.create_task(self._ws.send_str(json.dumps(response)))
+        self._schedule_ws_send_str(
+            json.dumps(response), reason=event_name or "cast-response"
+        )
 
     async def _reconnect_loop(self) -> None:
         while not self._closed:

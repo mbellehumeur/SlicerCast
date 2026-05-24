@@ -193,7 +193,7 @@ class ServiceProviderHubConnection:
 
         self._post_ui(run)
 
-    def _run_provider_on_message(self, message: Dict[str, Any]) -> None:
+    async def _dispatch_provider_on_message(self, message: Dict[str, Any]) -> None:
         from .CastServiceProviders import run_provider_on_message
 
         if self._provider_config is None:
@@ -202,9 +202,11 @@ class ServiceProviderHubConnection:
         event = message.get("event") or {}
         hub_event = event.get("hub.event")
         if hub_event in ("dicom-send", "nifti-send"):
-            # Run on the hub thread: large binary payloads must not wait on the
-            # Slicer UI queue (and disconnect can fire before UI drains).
-            run_provider_on_message(self._provider_config, message)
+            # Offload staging and provider handlers so the hub asyncio loop can
+            # process WebSocket ping/pong and reads during large transfers.
+            await asyncio.to_thread(
+                run_provider_on_message, self._provider_config, message
+            )
             return
 
         def run() -> None:
@@ -334,7 +336,7 @@ class ServiceProviderHubConnection:
                         message.get("id"),
                         self._product_name,
                     )
-                self._run_provider_on_message(message)
+                await self._dispatch_provider_on_message(message)
                 self._track_imaging_study(message)
                 self._maybe_auto_reply(message)
         except Exception as exc:

@@ -52,7 +52,7 @@ from Lib.cast_provider_runtime import (
 
 LOGGER = logging.getLogger("CastInterface.TotalSegmentator")
 if not LOGGER.handlers:
-    _log_handler = logging.StreamHandler(sys.stderr)
+    _log_handler = logging.StreamHandler(sys.stdout)
     _log_handler.setFormatter(
         logging.Formatter("[%(name)s] %(levelname)s: %(message)s")
     )
