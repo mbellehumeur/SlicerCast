@@ -6,6 +6,7 @@ import base64
 import binascii
 import logging
 import os
+import sys
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
@@ -18,6 +19,14 @@ if TYPE_CHECKING:
     from .service_provider_hub import ServiceProviderHubConnection
 
 LOGGER = logging.getLogger("CastInterface.ProviderRuntime")
+if not LOGGER.handlers:
+    _stderr_handler = logging.StreamHandler(sys.stderr)
+    _stderr_handler.setFormatter(
+        logging.Formatter("[%(name)s] %(levelname)s: %(message)s")
+    )
+    LOGGER.addHandler(_stderr_handler)
+    LOGGER.setLevel(logging.INFO)
+    LOGGER.propagate = False
 
 _connections: Dict[str, "ServiceProviderHubConnection"] = {}
 _receive_log: List[Dict[str, Any]] = []

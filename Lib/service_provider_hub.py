@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 import threading
+import traceback
 from typing import Any, Callable, Dict, List, Optional
 
 from .cast_client import (
@@ -18,6 +20,27 @@ from .cast_client import (
 )
 
 LOGGER = logging.getLogger("CastInterface.ServiceProviderHub")
+if not LOGGER.handlers:
+    _stderr_handler = logging.StreamHandler(sys.stderr)
+    _stderr_handler.setFormatter(
+        logging.Formatter("[%(name)s] %(levelname)s: %(message)s")
+    )
+    LOGGER.addHandler(_stderr_handler)
+    LOGGER.setLevel(logging.INFO)
+    LOGGER.propagate = False
+
+
+def _short_caller_stack(skip: int = 2, depth: int = 6) -> str:
+    """Compact stack of recent Python callers (newest last)."""
+    frames = traceback.extract_stack()[:-skip]
+    frames = frames[-depth:]
+    lines = []
+    for frame in frames:
+        path = frame.filename.replace("\\", "/").rsplit("/", 2)
+        short = "/".join(path[-2:]) if len(path) > 1 else frame.filename
+        lines.append(f"  {short}:{frame.lineno} {frame.name}")
+    return "\n".join(lines) if lines else "  (no caller frames)"
+
 
 _active_connections: List["ServiceProviderHubConnection"] = []
 
@@ -135,6 +158,12 @@ class ServiceProviderHubConnection:
         self._hub_thread.start()
 
     def disconnectHub(self) -> None:
+        LOGGER.info(
+            "disconnectHub called product=%s subscribed=%s caller=\n%s",
+            self._product_name,
+            self._hub_subscribed,
+            _short_caller_stack(),
+        )
         self._want_hub_unsubscribe = True
         self._stop_event.set()
         if self._hub_thread:

@@ -18,10 +18,14 @@ import base64
 import copy
 import json
 import logging
+import os
 import platform
 import random
+import socket
 import string
 import sys
+import time
+import traceback
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -108,6 +112,27 @@ def build_cast_request_event(
 import aiohttp
 
 LOGGER = logging.getLogger(__name__)
+if not LOGGER.handlers:
+    _stderr_handler = logging.StreamHandler(sys.stderr)
+    _stderr_handler.setFormatter(
+        logging.Formatter("[%(name)s] %(levelname)s: %(message)s")
+    )
+    LOGGER.addHandler(_stderr_handler)
+    LOGGER.setLevel(logging.INFO)
+    LOGGER.propagate = False
+
+
+def _short_caller_stack(skip: int = 2, depth: int = 6) -> str:
+    """Compact, one-line-per-frame stack of recent Python callers (newest last)."""
+    frames = traceback.extract_stack()[:-skip]
+    frames = frames[-depth:]
+    lines = []
+    for frame in frames:
+        path = frame.filename.replace("\\", "/").rsplit("/", 2)
+        short = "/".join(path[-2:]) if len(path) > 1 else frame.filename
+        lines.append(f"  {short}:{frame.lineno} {frame.name}")
+    return "\n".join(lines) if lines else "  (no caller frames)"
+
 
 DEFAULT_MESSAGE_ID_PREFIX = "PYCAST-"
 RECONNECT_INTERVAL_SEC = 10.0
@@ -115,6 +140,84 @@ RECONNECT_ERROR_THRESHOLD = 3
 # aiohttp defaults to 4 MiB; hub dicom-send uses a follow-on binary frame.
 DICOM_WS_MAX_MSG_SIZE = 0
 _SUBSCRIBER_SUFFIX_ALPHABET = string.ascii_uppercase + string.digits
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    raw = raw.strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+# Windows defaults SO_RCVBUF / SO_SNDBUF to ~64 KB which throttles large WS
+# binary receive throughput. Lift to 4 MiB by default; set <=0 to skip tuning.
+CAST_CLIENT_WS_SOCKET_RCVBUF_BYTES = _env_int(
+    "CAST_CLIENT_WS_SOCKET_RCVBUF_BYTES", 4 * 1024 * 1024
+)
+CAST_CLIENT_WS_SOCKET_SNDBUF_BYTES = _env_int(
+    "CAST_CLIENT_WS_SOCKET_SNDBUF_BYTES", 4 * 1024 * 1024
+)
+
+
+def _env_str(name: str, default: str) -> str:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    raw = raw.strip()
+    return raw if raw else default
+
+
+# WS binary fan-out preference advertised to the hub at subscribe time via
+# the ``hub.binaryTransfer`` form field. "ws-chunks" asks the hub to send
+# nifti-send / dicom-send as one text envelope + N BINARY frames (chunked) so
+# the aiohttp receiver can yield control between frames. "ws" (default for
+# legacy) keeps the single-frame path. Other values are sent as-is so the
+# hub can decide whether to honor them.
+CAST_CLIENT_BINARY_TRANSFER = _env_str(
+    "CAST_CLIENT_BINARY_TRANSFER", "ws-chunks"
+).lower()
+
+
+def _tune_websocket_socket(ws: "aiohttp.ClientWebSocketResponse") -> None:
+    """Lift TCP send/receive buffer sizes on the aiohttp WS socket.
+
+    Called right after ``ws_connect``. Reaches into the writer's transport to
+    retrieve the underlying ``socket.socket`` and applies the configured
+    ``SO_RCVBUF`` / ``SO_SNDBUF`` values. Failures are non-fatal.
+    """
+    rcv = CAST_CLIENT_WS_SOCKET_RCVBUF_BYTES
+    snd = CAST_CLIENT_WS_SOCKET_SNDBUF_BYTES
+    if rcv <= 0 and snd <= 0:
+        return
+    try:
+        writer = getattr(ws, "_writer", None)
+        transport = writer.transport if writer is not None else None
+        sock = transport.get_extra_info("socket") if transport is not None else None
+        if sock is None:
+            LOGGER.debug("Cast websocket socket tuning skipped (no socket)")
+            return
+        if rcv > 0:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, rcv)
+        if snd > 0:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, snd)
+        applied_rcv = sock.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
+        applied_snd = sock.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF)
+        LOGGER.info(
+            "Cast websocket socket buffers requested rcv=%d snd=%d "
+            "applied rcv=%d snd=%d",
+            rcv,
+            snd,
+            applied_rcv,
+            applied_snd,
+        )
+    except Exception as exc:
+        LOGGER.warning("Cast websocket socket tuning failed: %r", exc)
 
 ConnectionStateCallback = Callable[[str, Optional[Dict[str, Any]]], None]
 MessageCallback = Callable[[Dict[str, Any]], None]
@@ -232,11 +335,28 @@ def cast_binary_transfer_waits_for_binary_frame(event: Dict[str, Any]) -> bool:
         resource = item.get("resource")
         if not isinstance(resource, dict):
             continue
-        if resource.get("binaryTransfer") is True:
+        marker = resource.get("binaryTransfer")
+        if marker is True or marker == "ws-chunks":
             data = resource.get("data")
             if data is None or data == "":
                 return True
     return False
+
+
+def cast_binary_transfer_mode(event: Dict[str, Any]) -> str:
+    """Return ``"ws"`` for single-frame, ``"ws-chunks"`` for chunked, ``""`` otherwise."""
+    if event.get("hub.event") not in _CAST_BINARY_TRANSFER_EVENTS:
+        return ""
+    for item in _dicom_send_context_items(event):
+        resource = item.get("resource")
+        if not isinstance(resource, dict):
+            continue
+        marker = resource.get("binaryTransfer")
+        if marker is True:
+            return "ws"
+        if marker == "ws-chunks":
+            return "ws-chunks"
+    return ""
 
 
 def dicom_send_waits_for_binary_frame(event: Dict[str, Any]) -> bool:
@@ -529,6 +649,11 @@ class SlicerCastClient(CastClient):
         self._on_connection_state: Optional[ConnectionStateCallback] = None
         self._message_queue: asyncio.Queue[Dict[str, Any]] = asyncio.Queue()
         self._pending_dicom_send: Optional[Dict[str, Any]] = None
+        self._pending_dicom_send_started_at: Optional[float] = None
+        self._pending_dicom_send_byte_length: Optional[int] = None
+        self._pending_chunks: Optional[List[bytes]] = None
+        self._pending_chunks_received: int = 0
+        self._pending_chunks_total: int = 0
         self._skip_next_dicom_binary = False
         self._hub_channel_endpoint: str = ""
         self._async_loop: Optional[asyncio.AbstractEventLoop] = None
@@ -544,8 +669,15 @@ class SlicerCastClient(CastClient):
 
     async def _get_http(self) -> aiohttp.ClientSession:
         if self._http is None:
+            # total=None: do not cap total time. The session is reused by both
+            # short HTTP calls (OAuth/subscribe/publish) and long-lived
+            # WebSocket connections (/bind/<endpoint>). A finite ``total`` is
+            # carried into ws_connect's request and, on aiohttp versions where
+            # the request-level timer stays armed for the lifetime of the WS
+            # response, would fire mid-receive on large WS binary frames
+            # (e.g. nifti-send). ``connect=30`` still caps connection setup.
             self._http = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=60, connect=30)
+                timeout=aiohttp.ClientTimeout(total=None, connect=30)
             )
         return self._http
 
@@ -578,6 +710,8 @@ class SlicerCastClient(CastClient):
             "subscriber.product.name": self._session_cfg.product_name,
             "subscriber.product.version": self._session_cfg.product_version,
         }
+        if hub_mode == "subscribe" and CAST_CLIENT_BINARY_TRANSFER:
+            data["hub.binaryTransfer"] = CAST_CLIENT_BINARY_TRANSFER
         if hub_mode == "unsubscribe" and self._hub_channel_endpoint:
             data["hub.channel.endpoint"] = self._hub_channel_endpoint
         actors = [a.strip() for a in self._session_cfg.actors if a.strip()]
@@ -704,6 +838,7 @@ class SlicerCastClient(CastClient):
         self._ws = await http.ws_connect(
             normalized, max_msg_size=DICOM_WS_MAX_MSG_SIZE
         )
+        _tune_websocket_socket(self._ws)
         self._async_loop = asyncio.get_running_loop()
         await self._safe_send_str(
             json.dumps({"hub.channel.endpoint": normalized}),
@@ -715,7 +850,20 @@ class SlicerCastClient(CastClient):
         self._emit_connection_state("connected")
 
     async def _stop_websocket(self) -> None:
+        LOGGER.info(
+            "Cast _stop_websocket called closed=%s subscribed=%s "
+            "ws_open=%s caller=\n%s",
+            self._closed,
+            self._subscribed,
+            bool(self._ws and not self._ws.closed),
+            _short_caller_stack(),
+        )
         self._pending_dicom_send = None
+        self._pending_dicom_send_started_at = None
+        self._pending_dicom_send_byte_length = None
+        self._pending_chunks = None
+        self._pending_chunks_received = 0
+        self._pending_chunks_total = 0
         self._skip_next_dicom_binary = False
         if self._ws_task:
             self._ws_task.cancel()
@@ -821,35 +969,114 @@ class SlicerCastClient(CastClient):
 
     async def _websocket_reader(self) -> None:
         assert self._ws is not None
+        reader_started_at = time.monotonic()
+        last_text_at: Optional[float] = None
+        last_binary_at: Optional[float] = None
+        last_msg_type: Optional[str] = None
+        text_frames = 0
+        binary_frames = 0
+        binary_bytes = 0
+        close_code: Optional[int] = None
+        close_extra: Any = None
+        reader_exc: Optional[BaseException] = None
         try:
             async for msg in self._ws:
                 if msg.type == aiohttp.WSMsgType.TEXT:
+                    last_msg_type = "TEXT"
+                    last_text_at = time.monotonic()
+                    text_frames += 1
                     await self._handle_websocket_text(msg.data)
                 elif msg.type == aiohttp.WSMsgType.BINARY:
+                    last_msg_type = "BINARY"
+                    last_binary_at = time.monotonic()
+                    binary_frames += 1
+                    binary_bytes += len(msg.data)
+                    LOGGER.info(
+                        "Cast websocket binary frame received bytes=%d total_bytes=%d frame_count=%d",
+                        len(msg.data),
+                        binary_bytes,
+                        binary_frames,
+                    )
                     await asyncio.to_thread(
                         self._process_binary_message, msg.data
                     )
                 elif msg.type == aiohttp.WSMsgType.ERROR:
-                    exc = self._ws.exception() if self._ws else None
-                    LOGGER.warning("websocket protocol error: %s", exc)
+                    last_msg_type = "ERROR"
+                    close_code = self._ws.close_code if self._ws else None
+                    reader_exc = self._ws.exception() if self._ws else None
+                    LOGGER.warning(
+                        "Cast websocket protocol error close_code=%s exc=%r",
+                        close_code,
+                        reader_exc,
+                    )
                     break
                 elif msg.type in (
                     aiohttp.WSMsgType.CLOSE,
                     aiohttp.WSMsgType.CLOSED,
+                    aiohttp.WSMsgType.CLOSING,
                 ):
+                    last_msg_type = msg.type.name
+                    close_code = self._ws.close_code if self._ws else None
+                    close_extra = getattr(msg, "extra", None)
+                    LOGGER.info(
+                        "Cast websocket close frame type=%s close_code=%s reason=%s",
+                        msg.type.name,
+                        close_code,
+                        close_extra,
+                    )
                     break
         except asyncio.CancelledError:
             raise
         except Exception as exc:
+            reader_exc = exc
             LOGGER.warning("websocket reader error: %s", exc)
         finally:
-            if self._pending_dicom_send is not None:
-                pending = self._pending_dicom_send
+            now = time.monotonic()
+            uptime = now - reader_started_at
+            since_last_binary = (
+                f"{now - last_binary_at:.1f}s" if last_binary_at else "n/a"
+            )
+            since_last_text = (
+                f"{now - last_text_at:.1f}s" if last_text_at else "n/a"
+            )
+            pending = self._pending_dicom_send
+            pending_summary = None
+            if pending is not None:
+                event = pending.get("event") or {}
+                pending_summary = {
+                    "id": pending.get("id"),
+                    "event": event.get("hub.event"),
+                }
                 LOGGER.warning(
-                    "websocket closed before dicom-send binary completed id=%s",
+                    "websocket closed before binary completed id=%s event=%s",
                     pending.get("id", ""),
+                    event.get("hub.event", ""),
                 )
+            if close_code is None and self._ws is not None:
+                close_code = self._ws.close_code
+            LOGGER.info(
+                "Cast websocket reader exit uptime=%.1fs last_msg=%s "
+                "text_frames=%d binary_frames=%d binary_bytes=%d "
+                "since_last_binary=%s since_last_text=%s "
+                "close_code=%s reason=%s exc=%r pending=%s",
+                uptime,
+                last_msg_type,
+                text_frames,
+                binary_frames,
+                binary_bytes,
+                since_last_binary,
+                since_last_text,
+                close_code,
+                close_extra,
+                reader_exc,
+                pending_summary,
+            )
             self._pending_dicom_send = None
+            self._pending_dicom_send_started_at = None
+            self._pending_dicom_send_byte_length = None
+            self._pending_chunks = None
+            self._pending_chunks_received = 0
+            self._pending_chunks_total = 0
             self._skip_next_dicom_binary = False
             if not self._closed:
                 self._resubscribe_requested = True
@@ -865,17 +1092,51 @@ class SlicerCastClient(CastClient):
             LOGGER.warning("unexpected binary WebSocket message")
             return
 
+        chunked_frame_count = 0
+        if self._pending_chunks is not None:
+            self._pending_chunks.append(data)
+            self._pending_chunks_received += len(data)
+            if (
+                self._pending_chunks_total > 0
+                and self._pending_chunks_received < self._pending_chunks_total
+            ):
+                if (
+                    len(self._pending_chunks) == 1
+                    or len(self._pending_chunks) % 4 == 0
+                ):
+                    LOGGER.info(
+                        "Cast binary transfer chunk id=%s event=%s "
+                        "received=%d/%d frames=%d",
+                        pending.get("id", ""),
+                        pending["event"].get("hub.event", ""),
+                        self._pending_chunks_received,
+                        self._pending_chunks_total,
+                        len(self._pending_chunks),
+                    )
+                return
+            chunked_frame_count = len(self._pending_chunks)
+            data = b"".join(self._pending_chunks)
+            self._pending_chunks = None
+            self._pending_chunks_received = 0
+            self._pending_chunks_total = 0
+
         self._pending_dicom_send = None
+        started_at = self._pending_dicom_send_started_at
+        announced_bytes = self._pending_dicom_send_byte_length
+        self._pending_dicom_send_started_at = None
+        self._pending_dicom_send_byte_length = None
         event = pending["event"]
         attached = False
         for item in _dicom_send_context_items(event):
             resource = item.get("resource")
-            if (
-                isinstance(resource, dict)
-                and resource.get("binaryTransfer") is True
-            ):
+            if not isinstance(resource, dict):
+                continue
+            marker = resource.get("binaryTransfer")
+            if marker is True or marker == "ws-chunks":
                 resource = dict(resource)
                 resource.pop("binaryTransfer", None)
+                resource.pop("chunkSize", None)
+                resource.pop("chunkCount", None)
                 resource["data"] = data
                 resource["byteLength"] = len(data)
                 item["resource"] = resource
@@ -890,6 +1151,25 @@ class SlicerCastClient(CastClient):
             pending.get("id", ""),
             len(data),
         )
+        if started_at is not None:
+            elapsed = max(time.monotonic() - started_at, 0.0)
+            throughput = (
+                f"{(len(data) / (1024 * 1024)) / elapsed:.2f}"
+                if elapsed > 0
+                else "n/a"
+            )
+            LOGGER.info(
+                "Cast binary transfer end id=%s event=%s mode=%s bytes=%d "
+                "announcedBytes=%s frames=%d elapsed=%.2fs throughput=%s MB/s",
+                pending.get("id", ""),
+                event.get("hub.event", ""),
+                "ws-chunks" if chunked_frame_count > 0 else "ws",
+                len(data),
+                announced_bytes,
+                chunked_frame_count if chunked_frame_count > 0 else 1,
+                elapsed,
+                throughput,
+            )
         if pending.get("id") == self._last_published_message_id:
             return
         self._deliver_message(pending)
@@ -926,10 +1206,27 @@ class SlicerCastClient(CastClient):
 
         if cast_binary_transfer_waits_for_binary_frame(event):
             self._pending_dicom_send = cast_message
+            self._pending_dicom_send_started_at = time.monotonic()
+            self._pending_dicom_send_byte_length = dicom_send_byte_length(
+                cast_message
+            )
+            mode = cast_binary_transfer_mode(event)
+            if mode == "ws-chunks":
+                self._pending_chunks = []
+                self._pending_chunks_received = 0
+                self._pending_chunks_total = (
+                    self._pending_dicom_send_byte_length or 0
+                )
+            else:
+                self._pending_chunks = None
+                self._pending_chunks_received = 0
+                self._pending_chunks_total = 0
             LOGGER.info(
-                "Cast message awaiting binary frame id=%s event=%s",
+                "Cast binary transfer start id=%s event=%s byteLength=%s mode=%s",
                 cast_message.get("id", ""),
                 (event or {}).get("hub.event", ""),
+                self._pending_dicom_send_byte_length,
+                mode or "ws",
             )
             return
 
@@ -993,6 +1290,12 @@ class SlicerCastClient(CastClient):
             return 0
 
     async def unsubscribe(self) -> None:
+        LOGGER.info(
+            "Cast unsubscribe called closed=%s subscribed=%s caller=\n%s",
+            self._closed,
+            self._subscribed,
+            _short_caller_stack(),
+        )
         self._subscribed = False
         self._resubscribe_requested = False
         if self._token:
@@ -1191,6 +1494,12 @@ class SlicerCastClient(CastClient):
 
     async def close(self, *, hub_unsubscribe: bool = True) -> None:
         """Release WebSocket and HTTP. Hub unsubscribe is optional (Slicer stays subscribed)."""
+        LOGGER.info(
+            "Cast close called closed=%s hub_unsubscribe=%s caller=\n%s",
+            self._closed,
+            hub_unsubscribe,
+            _short_caller_stack(),
+        )
         self._closed = True
         if self._reconnect_task:
             self._reconnect_task.cancel()

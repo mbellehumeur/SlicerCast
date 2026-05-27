@@ -21,6 +21,14 @@ from slicer.i18n import tr as _
 from .cast_client import CastClientOptions, HubConfig, SessionConfig, SlicerCastClient
 
 LOGGER = logging.getLogger("CastInterface.ServiceProviders")
+if not LOGGER.handlers:
+    _stderr_handler = logging.StreamHandler(sys.stderr)
+    _stderr_handler.setFormatter(
+        logging.Formatter("[%(name)s] %(levelname)s: %(message)s")
+    )
+    LOGGER.addHandler(_stderr_handler)
+    LOGGER.setLevel(logging.INFO)
+    LOGGER.propagate = False
 
 # --- Hub config (align with Viewers/platform/app/public/config/cast.js) ---
 
