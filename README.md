@@ -1,12 +1,9 @@
-# Cast Interface
+# 3D Slicer Cast Interface Extension
 
 <p align="center">
   <img src="docs/images/banner.png" alt="Cast Interface Banner" width="100%">
 </p>
 
-<p align="center">
-  <strong>Desktop Integration for Healthcare</strong>
-</p>
 
 ---
 
@@ -14,17 +11,11 @@
 
 Cast Interface is a 3D Slicer extension focused on desktop integration workflows for healthcare applications.
 
-The extension is designed to simplify communication and interoperability between 3D Slicer and external desktop systems.
 
 ---
 
 ## Features
 
-* Desktop integration workflows
-* External application connectivity
-* Healthcare-focused interoperability
-* Modern broadcast-style interface concepts
-* 3D Slicer ecosystem integration
 
 ---
 
