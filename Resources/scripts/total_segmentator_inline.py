@@ -380,12 +380,6 @@ def _run_topic_segmentation(topic: str, hub_event: str) -> None:
     if staging is None:
         return
     staged_files = _count_input_files(staging.input_dir)
-    LOGGER.info(
-        "TotalSegmentator starting segmentation topic=%s hub.event=%s staged_files=%d",
-        topic,
-        hub_event,
-        staged_files,
-    )
     try:
         _run_segmentation_job_body(
             topic, staging.product_name, staging.input_dir, hub_event
@@ -417,23 +411,9 @@ def _run_segmentation_job_body(
         )
         job_input = job_dir / "input"
         job_output = job_dir / "output"
-        LOGGER.info(
-            "TotalSegmentator starting job topic=%s files=%d staging=%s job=%s",
-            topic,
-            staged_count,
-            input_dir,
-            job_dir,
-        )
         shutil.copytree(input_dir, job_input)
         _clear_staging_input(input_dir)
         cli_input = _cli_input_path(job_input, hub_event)
-        LOGGER.info(
-            "TotalSegmentator copied %d file(s) to job input %s; cli -i=%s hub.event=%s",
-            staged_count,
-            job_input,
-            cli_input,
-            hub_event,
-        )
 
         output_file = _run_totalsegmentator(cli_input, job_output, hub_event)
         if not output_file:
@@ -640,15 +620,6 @@ def _run_totalsegmentator(
 
     for device in ("gpu", "cpu"):
         try:
-            LOGGER.info(
-                "TotalSegmentator running task=%s fast=%s device=%s hub.event=%s input=%s output=%s",
-                TS_TASK,
-                TS_FAST,
-                device,
-                hub_event,
-                input_path,
-                output_path,
-            )
             started = time.monotonic()
             options = _total_segmentator_cli_options(
                 input_path, output_path, device, hub_event

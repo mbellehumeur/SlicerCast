@@ -29,14 +29,14 @@ Cast is an offshoot of FHIRcast (<https://fhircast.hl7.org/>). FHIRcast is the s
 
 Cast differs to FHIRcast in it;s goals and features.
 
-Goal: 
+### Goal 
 
 Cast is focused on desktop integration of healthcare applications. It is not restricted to a specific data format.  Cast is also not restricted to a specific authentication mechanism; it expects that apps will authenticate with the customer's system. Cast aims to provide a general framework that can support all use cases by adding data types with verbs (events), for example, nifti-send.
 
 
 
 
-Features: 
+### Features 
 
 In addition to FHIRcast events, the cast hub allows the following:
 
@@ -45,18 +45,19 @@ In addition to FHIRcast events, the cast hub allows the following:
  - Support for binary files transfer; therefore payloads other than FHIR/JSON, such as DICOM, PNG, NIFTi, openEHR, OpenIGTLink.
 
  - Group topics for multi-user workflows, such as tumor boards or interventional procedures.
-Support for IHE roles.
+
+ - Support for IHE roles.
 
  - Support three additional subscription data: 
- -- subscriber.product.name, 
- -- subscriber.product.version,
- -- subscriber.actors
+     - subscriber.product.name, 
+     - subscriber.product.version,
+     - subscriber.actors
  
  - Support four additional event data: 
- -- subscriber.name
- -- subscriber.actor
- -- target.actor
- -- target.product.name
+     - subscriber.name
+     - subscriber.actor
+     - target.actor
+     - target.product.name
 
 
 For testing and development, the hub provides a test mock auth endpoint that assigns a user  when none is provided.  A “single-user” mode is available for stand-alone applications that do not use authentication.   The hub mock auth endpoints are the same as keycloak to facilitate integration.
@@ -105,23 +106,9 @@ For high availibity deployment a  hot stand-by configuraiton can be configured. 
 
 ---
 
-## Repository Assets
-
-Recommended repository structure:
-
-```text
-/docs
-  /images
-    banner.png
-    social-preview.png
-    icon.png
-```
-
--
-
 ## License
 
-Apache 2.0 License
+MIT License
 
 ---
 
