@@ -21,14 +21,7 @@ from slicer.i18n import tr as _
 from .cast_client import CastClientOptions, HubConfig, SessionConfig, SlicerCastClient
 
 LOGGER = logging.getLogger("CastInterface.ServiceProviders")
-if not LOGGER.handlers:
-    _stderr_handler = logging.StreamHandler(sys.stderr)
-    _stderr_handler.setFormatter(
-        logging.Formatter("[%(name)s] %(levelname)s: %(message)s")
-    )
-    LOGGER.addHandler(_stderr_handler)
-    LOGGER.setLevel(logging.INFO)
-    LOGGER.propagate = False
+LOGGER.setLevel(logging.INFO)
 
 # --- Hub config (align with Viewers/platform/app/public/config/cast.js) ---
 
@@ -88,7 +81,7 @@ def default_totalsegmentator_script_path() -> str:
         os.path.dirname(lib_dir),
         "Resources",
         "scripts",
-        "total_segmentator.py",
+        "total_segmentator_inline.py",
     )
 
 
@@ -98,7 +91,7 @@ DEFAULT_TOTALSEG_PRODUCT_NAME = "TOTALSEG"
 DEFAULT_TOTALSEG_DESCRIPTION = "Total Segmentator CT segmentation (DICOM RT Struct out)"
 EVENTS = ["dicom-send", "nifti-send"]
 TOTALSEG_EVENTS = ["dicom-send", "nifti-send", "dicomtransfer-request"]
-TOTALSEG_SCRIPT_BASENAME = "total_segmentator.py"
+TOTALSEG_SCRIPT_BASENAME = "total_segmentator_inline.py"
 ACTORS = ["EC"]
 USER_NAME = "3dslicer-server"
 AUTO_RECONNECT = True
@@ -120,6 +113,10 @@ def is_totalsegmentator_provider(cfg: ServiceProviderConfig) -> bool:
     script = (cfg.script_path or "").replace("\\", "/").lower()
     if script.endswith(f"/{TOTALSEG_SCRIPT_BASENAME}") or script.endswith(
         TOTALSEG_SCRIPT_BASENAME
+    ):
+        return True
+    if script.endswith("/total_segmentator.py") or script.endswith(
+        "total_segmentator.py"
     ):
         return True
     name = (cfg.product_name or "").strip().upper()

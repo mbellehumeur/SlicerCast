@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import sys
 import threading
 import traceback
 from typing import Any, Callable, Dict, List, Optional
@@ -20,14 +19,7 @@ from .cast_client import (
 )
 
 LOGGER = logging.getLogger("CastInterface.ServiceProviderHub")
-if not LOGGER.handlers:
-    _stderr_handler = logging.StreamHandler(sys.stderr)
-    _stderr_handler.setFormatter(
-        logging.Formatter("[%(name)s] %(levelname)s: %(message)s")
-    )
-    LOGGER.addHandler(_stderr_handler)
-    LOGGER.setLevel(logging.INFO)
-    LOGGER.propagate = False
+LOGGER.setLevel(logging.INFO)
 
 
 def _short_caller_stack(skip: int = 2, depth: int = 6) -> str:
@@ -263,7 +255,7 @@ class ServiceProviderHubConnection:
                 self._script_path or "",
             )
         subscribe_events = subscribe_events_for_provider(provider_cfg)
-        LOGGER.info(
+        LOGGER.debug(
             "Cast hub subscribe product=%s script=%s hub.events=%s",
             self._product_name,
             getattr(provider_cfg, "script_path", self._script_path),
@@ -277,7 +269,7 @@ class ServiceProviderHubConnection:
         )
 
         def on_state(state: str, detail: Optional[Dict[str, Any]] = None) -> None:
-            LOGGER.info(
+            LOGGER.debug(
                 "Cast connection state product=%s: %s",
                 self._product_name,
                 state,
@@ -300,7 +292,7 @@ class ServiceProviderHubConnection:
                 return
 
             auth = await self._client.authenticate()
-            LOGGER.info(
+            LOGGER.debug(
                 "authenticated product=%s user_name=%s",
                 self._product_name,
                 auth.get("user_name"),

@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import copy
+import http.client
 import json
 import logging
 import os
@@ -31,7 +32,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
-from urllib.parse import urlparse, urlunparse
+import urllib.error
+import urllib.request
+from urllib.parse import urljoin, urlparse, urlunparse
 
 REQUEST_SUFFIX = "-request"
 RESPONSE_SUFFIX = "-response"
@@ -112,14 +115,7 @@ def build_cast_request_event(
 import aiohttp
 
 LOGGER = logging.getLogger(__name__)
-if not LOGGER.handlers:
-    _stderr_handler = logging.StreamHandler(sys.stderr)
-    _stderr_handler.setFormatter(
-        logging.Formatter("[%(name)s] %(levelname)s: %(message)s")
-    )
-    LOGGER.addHandler(_stderr_handler)
-    LOGGER.setLevel(logging.INFO)
-    LOGGER.propagate = False
+LOGGER.setLevel(logging.INFO)
 
 
 def _short_caller_stack(skip: int = 2, depth: int = 6) -> str:
@@ -173,14 +169,14 @@ def _env_str(name: str, default: str) -> str:
     return raw if raw else default
 
 
-# WS binary fan-out preference advertised to the hub at subscribe time via
-# the ``hub.binaryTransfer`` form field. "ws-chunks" asks the hub to send
-# nifti-send / dicom-send as one text envelope + N BINARY frames (chunked) so
-# the aiohttp receiver can yield control between frames. "ws" (default for
-# legacy) keeps the single-frame path. Other values are sent as-is so the
-# hub can decide whether to honor them.
-CAST_CLIENT_BINARY_TRANSFER = _env_str(
-    "CAST_CLIENT_BINARY_TRANSFER", "ws-chunks"
+# Publisher-side opt-in: when set to "http", outgoing dicom-send / nifti-send
+# resources are stamped with ``binaryTransfer="http"`` so the hub stores the
+# bytes and fans out a URL instead of a WS BINARY frame. Leave unset (default)
+# for legacy WS fan-out. The caller may also set ``resource.binaryTransfer``
+# directly on the publish message; normalizers preserve a caller-supplied
+# string value.
+CAST_CLIENT_PUBLISH_BINARY_TRANSFER = _env_str(
+    "CAST_CLIENT_PUBLISH_BINARY_TRANSFER", ""
 ).lower()
 
 
@@ -208,14 +204,6 @@ def _tune_websocket_socket(ws: "aiohttp.ClientWebSocketResponse") -> None:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, snd)
         applied_rcv = sock.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
         applied_snd = sock.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF)
-        LOGGER.info(
-            "Cast websocket socket buffers requested rcv=%d snd=%d "
-            "applied rcv=%d snd=%d",
-            rcv,
-            snd,
-            applied_rcv,
-            applied_snd,
-        )
     except Exception as exc:
         LOGGER.warning("Cast websocket socket tuning failed: %r", exc)
 
@@ -324,39 +312,126 @@ def _dicom_send_context_items(event: Dict[str, Any]) -> List[Dict[str, Any]]:
     return []
 
 
-_CAST_BINARY_TRANSFER_EVENTS = frozenset({"dicom-send", "nifti-send"})
+# Cast binary-family events: any ``hub.event`` whose name matches one of these
+# prefixes (exact or followed by ``-`` / ``_``) is considered binary-bearing
+# for transport purposes. Keep this list byte-for-byte equivalent across the
+# four Cast implementations (vtk-js sendNormalize, Slicer cast_client, VolView
+# server cast_client, hub cast_api) per AGENTS.md section 2.
+_CAST_BINARY_EVENT_PREFIXES = ("dicom", "nifti", "jpg", "png", "nrrd")
+
+
+def is_cast_binary_event(event_name: Any) -> bool:
+    if not isinstance(event_name, str):
+        return False
+    name = event_name.strip().lower()
+    if not name:
+        return False
+    for prefix in _CAST_BINARY_EVENT_PREFIXES:
+        if name == prefix or name.startswith(prefix + "-") or name.startswith(prefix + "_"):
+            return True
+    return False
 
 
 def cast_binary_transfer_waits_for_binary_frame(event: Dict[str, Any]) -> bool:
-    """True when hub sent JSON first and file bytes follow on the WebSocket."""
-    if event.get("hub.event") not in _CAST_BINARY_TRANSFER_EVENTS:
-        return False
-    for item in _dicom_send_context_items(event):
-        resource = item.get("resource")
-        if not isinstance(resource, dict):
-            continue
-        marker = resource.get("binaryTransfer")
-        if marker is True or marker == "ws-chunks":
-            data = resource.get("data")
-            if data is None or data == "":
-                return True
+    """Legacy helper; WebSocket BINARY follow-up is no longer used."""
     return False
 
 
 def cast_binary_transfer_mode(event: Dict[str, Any]) -> str:
-    """Return ``"ws"`` for single-frame, ``"ws-chunks"`` for chunked, ``""`` otherwise."""
-    if event.get("hub.event") not in _CAST_BINARY_TRANSFER_EVENTS:
+    """Return ``"http"`` when the hub registered an http payload URL, else ``""``."""
+    if not is_cast_binary_event(event.get("hub.event")):
+        return ""
+    for item in _dicom_send_context_items(event):
+        resource = item.get("resource")
+        if isinstance(resource, dict) and resource.get("binaryTransfer") == "http":
+            return "http"
+    return ""
+
+
+def cast_binary_transfer_http_url(event: Dict[str, Any]) -> str:
+    """Return the http payload URL when binaryTransfer == "http", else ``""``."""
+    if not is_cast_binary_event(event.get("hub.event")):
         return ""
     for item in _dicom_send_context_items(event):
         resource = item.get("resource")
         if not isinstance(resource, dict):
             continue
-        marker = resource.get("binaryTransfer")
-        if marker is True:
-            return "ws"
-        if marker == "ws-chunks":
-            return "ws-chunks"
+        if resource.get("binaryTransfer") != "http":
+            continue
+        url = resource.get("url")
+        if isinstance(url, str) and url.strip():
+            return url.strip()
     return ""
+
+
+_HTTP_PAYLOAD_READ_CHUNK_BYTES = 4 * 1024 * 1024
+
+
+def _tune_http_client_socket(sock: Optional[socket.socket]) -> None:
+    """Lift SO_RCVBUF on blocking HTTP payload downloads (Windows default ~64KB)."""
+    if sock is None:
+        return
+    rcv = CAST_CLIENT_WS_SOCKET_RCVBUF_BYTES
+    if rcv <= 0:
+        return
+    try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, rcv)
+    except OSError:
+        pass
+
+
+def _download_http_payload_sync(url: str, bearer_token: str) -> bytes:
+    """Blocking GET for hub ``binaryTransfer: http`` payloads.
+
+    Uses ``http.client`` with a tuned receive buffer and multi-MiB ``read()``
+    chunks (stdlib C socket path), not aiohttp's asyncio stream parser.
+    """
+    parsed = urlparse(url)
+    host = parsed.hostname
+    if not host:
+        raise ValueError(f"Cast http payload url missing host: {url!r}")
+    default_port = 443 if parsed.scheme == "https" else 80
+    port = parsed.port if parsed.port is not None else default_port
+    path = parsed.path or "/"
+    if parsed.query:
+        path = f"{path}?{parsed.query}"
+
+    headers: Dict[str, str] = {}
+    if bearer_token:
+        headers["Authorization"] = f"Bearer {bearer_token}"
+
+    if parsed.scheme == "https":
+        conn: http.client.HTTPConnection = http.client.HTTPSConnection(
+            host, port, timeout=600
+        )
+    else:
+        conn = http.client.HTTPConnection(host, port, timeout=600)
+    try:
+        conn.request("GET", path, headers=headers)
+        resp = conn.getresponse()
+        if resp.status != 200:
+            raise urllib.error.HTTPError(
+                url, resp.status, resp.reason, resp.headers, None
+            )
+        _tune_http_client_socket(conn.sock)
+        parts: List[bytes] = []
+        while True:
+            chunk = resp.read(_HTTP_PAYLOAD_READ_CHUNK_BYTES)
+            if not chunk:
+                break
+            parts.append(chunk)
+        return b"".join(parts)
+    finally:
+        conn.close()
+
+
+def _resolve_publish_binary_transfer(existing: Any) -> Any:
+    """Resolve ``resource.binaryTransfer`` for publish normalize (http opt-in only)."""
+    if isinstance(existing, str) and existing.strip():
+        return existing.strip().lower()
+    if CAST_CLIENT_PUBLISH_BINARY_TRANSFER == "http":
+        return "http"
+    return existing
 
 
 def dicom_send_waits_for_binary_frame(event: Dict[str, Any]) -> bool:
@@ -476,7 +551,9 @@ def normalize_dicom_send_context_item(item: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(mime_type, str) and mime_type.strip()
         else "application/dicom"
     )
-    normalized_resource["binaryTransfer"] = True
+    normalized_resource["binaryTransfer"] = _resolve_publish_binary_transfer(
+        normalized_resource.get("binaryTransfer")
+    )
     normalized_resource["byteLength"] = len(raw)
     return {**item, "resource": normalized_resource}
 
@@ -529,7 +606,9 @@ def normalize_nifti_send_context_item(item: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(mime_type, str) and mime_type.strip()
         else "application/vnd.unknown.nifti-1"
     )
-    normalized_resource["binaryTransfer"] = True
+    normalized_resource["binaryTransfer"] = _resolve_publish_binary_transfer(
+        normalized_resource.get("binaryTransfer")
+    )
     normalized_resource["byteLength"] = len(raw)
     return {**item, "resource": normalized_resource}
 
@@ -648,13 +727,6 @@ class SlicerCastClient(CastClient):
         self._on_message: Optional[MessageCallback] = None
         self._on_connection_state: Optional[ConnectionStateCallback] = None
         self._message_queue: asyncio.Queue[Dict[str, Any]] = asyncio.Queue()
-        self._pending_dicom_send: Optional[Dict[str, Any]] = None
-        self._pending_dicom_send_started_at: Optional[float] = None
-        self._pending_dicom_send_byte_length: Optional[int] = None
-        self._pending_chunks: Optional[List[bytes]] = None
-        self._pending_chunks_received: int = 0
-        self._pending_chunks_total: int = 0
-        self._skip_next_dicom_binary = False
         self._hub_channel_endpoint: str = ""
         self._async_loop: Optional[asyncio.AbstractEventLoop] = None
 
@@ -710,8 +782,6 @@ class SlicerCastClient(CastClient):
             "subscriber.product.name": self._session_cfg.product_name,
             "subscriber.product.version": self._session_cfg.product_version,
         }
-        if hub_mode == "subscribe" and CAST_CLIENT_BINARY_TRANSFER:
-            data["hub.binaryTransfer"] = CAST_CLIENT_BINARY_TRANSFER
         if hub_mode == "unsubscribe" and self._hub_channel_endpoint:
             data["hub.channel.endpoint"] = self._hub_channel_endpoint
         actors = [a.strip() for a in self._session_cfg.actors if a.strip()]
@@ -845,26 +915,10 @@ class SlicerCastClient(CastClient):
             reason="bind",
         )
         self._ws_task = asyncio.create_task(self._websocket_reader())
-        LOGGER.info("Cast websocket reader started (non-blocking hub I/O)")
         self._reconnect_fail_streak = 0
         self._emit_connection_state("connected")
 
     async def _stop_websocket(self) -> None:
-        LOGGER.info(
-            "Cast _stop_websocket called closed=%s subscribed=%s "
-            "ws_open=%s caller=\n%s",
-            self._closed,
-            self._subscribed,
-            bool(self._ws and not self._ws.closed),
-            _short_caller_stack(),
-        )
-        self._pending_dicom_send = None
-        self._pending_dicom_send_started_at = None
-        self._pending_dicom_send_byte_length = None
-        self._pending_chunks = None
-        self._pending_chunks_received = 0
-        self._pending_chunks_total = 0
-        self._skip_next_dicom_binary = False
         if self._ws_task:
             self._ws_task.cancel()
             try:
@@ -967,47 +1021,142 @@ class SlicerCastClient(CastClient):
         else:
             loop.call_soon_threadsafe(self._enqueue_message, cast_message)
 
+    def _resolve_http_payload_url(self, raw_url: str) -> str:
+        """Resolve a hub-relative payload URL against ``hub.hub_endpoint``.
+
+        ``raw_url`` is normally an absolute path like
+        ``/api/hub/payloads/<token>``; ``urljoin`` against the hub endpoint
+        (e.g. ``http://host:4014/api/hub``) correctly replaces the path
+        component to yield ``http://host:4014/api/hub/payloads/<token>``.
+        """
+        if not raw_url:
+            return ""
+        if raw_url.startswith(("http://", "https://")):
+            return raw_url
+        try:
+            return urljoin(self._hub.hub_endpoint, raw_url)
+        except Exception as exc:
+            LOGGER.warning(
+                "Cast http payload url resolution failed url=%r err=%r",
+                raw_url,
+                exc,
+            )
+            return ""
+
+    def _schedule_http_payload_fetch(
+        self,
+        cast_message: Dict[str, Any],
+        raw_url: str,
+        announced_bytes: Optional[int],
+    ) -> None:
+        """Spawn an async task to GET the http payload + attach + deliver."""
+        url = self._resolve_http_payload_url(raw_url)
+        if not url:
+            return
+        loop = self._async_loop
+        coro = self._fetch_http_payload_and_deliver(
+            cast_message, url, announced_bytes
+        )
+        try:
+            running = asyncio.get_running_loop()
+        except RuntimeError:
+            running = None
+        if loop is None or running is loop:
+            asyncio.ensure_future(coro)
+        else:
+            asyncio.run_coroutine_threadsafe(coro, loop)
+
+    async def _fetch_http_payload_and_deliver(
+        self,
+        cast_message: Dict[str, Any],
+        url: str,
+        announced_bytes: Optional[int],
+    ) -> None:
+        """Download an http binaryTransfer payload, attach it, and deliver."""
+        started_at = time.monotonic()
+        try:
+            data = await asyncio.to_thread(
+                _download_http_payload_sync, url, self._token or ""
+            )
+        except urllib.error.HTTPError as exc:
+            LOGGER.warning(
+                "Cast http payload fetch failed id=%s status=%s url=%s",
+                cast_message.get("id", ""),
+                exc.code,
+                url,
+            )
+            return
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            LOGGER.warning(
+                "Cast http payload fetch error id=%s url=%s err=%r",
+                cast_message.get("id", ""),
+                url,
+                exc,
+            )
+            return
+
+        elapsed = max(time.monotonic() - started_at, 0.0)
+        throughput = (
+            f"{(len(data) / (1024 * 1024)) / elapsed:.2f}"
+            if elapsed > 0
+            else "n/a"
+        )
+        LOGGER.info(
+            "Cast binary transfer end id=%s event=%s mode=http bytes=%d "
+            "announcedBytes=%s elapsed=%.2fs throughput=%s MB/s",
+            cast_message.get("id", ""),
+            (cast_message.get("event") or {}).get("hub.event", ""),
+            len(data),
+            announced_bytes,
+            elapsed,
+            throughput,
+        )
+
+        event = cast_message.get("event") or {}
+        attached = False
+        for item in _dicom_send_context_items(event):
+            resource = item.get("resource")
+            if not isinstance(resource, dict):
+                continue
+            if resource.get("binaryTransfer") != "http":
+                continue
+            resource = dict(resource)
+            resource.pop("binaryTransfer", None)
+            resource.pop("url", None)
+            resource.pop("expiresAt", None)
+            resource["data"] = data
+            resource["byteLength"] = len(data)
+            item["resource"] = resource
+            attached = True
+            break
+        if not attached:
+            LOGGER.warning(
+                "Cast http payload had no matching resource slot id=%s",
+                cast_message.get("id", ""),
+            )
+            return
+
+        if cast_message.get("id") == self._last_published_message_id:
+            return
+        self._deliver_message(cast_message)
+
     async def _websocket_reader(self) -> None:
         assert self._ws is not None
-        reader_started_at = time.monotonic()
-        last_text_at: Optional[float] = None
-        last_binary_at: Optional[float] = None
-        last_msg_type: Optional[str] = None
-        text_frames = 0
-        binary_frames = 0
-        binary_bytes = 0
-        close_code: Optional[int] = None
-        close_extra: Any = None
-        reader_exc: Optional[BaseException] = None
         try:
             async for msg in self._ws:
                 if msg.type == aiohttp.WSMsgType.TEXT:
-                    last_msg_type = "TEXT"
-                    last_text_at = time.monotonic()
-                    text_frames += 1
                     await self._handle_websocket_text(msg.data)
                 elif msg.type == aiohttp.WSMsgType.BINARY:
-                    last_msg_type = "BINARY"
-                    last_binary_at = time.monotonic()
-                    binary_frames += 1
-                    binary_bytes += len(msg.data)
-                    LOGGER.info(
-                        "Cast websocket binary frame received bytes=%d total_bytes=%d frame_count=%d",
-                        len(msg.data),
-                        binary_bytes,
-                        binary_frames,
-                    )
                     await asyncio.to_thread(
                         self._process_binary_message, msg.data
                     )
                 elif msg.type == aiohttp.WSMsgType.ERROR:
-                    last_msg_type = "ERROR"
-                    close_code = self._ws.close_code if self._ws else None
-                    reader_exc = self._ws.exception() if self._ws else None
                     LOGGER.warning(
                         "Cast websocket protocol error close_code=%s exc=%r",
-                        close_code,
-                        reader_exc,
+                        self._ws.close_code if self._ws else None,
+                        self._ws.exception() if self._ws else None,
                     )
                     break
                 elif msg.type in (
@@ -1015,164 +1164,21 @@ class SlicerCastClient(CastClient):
                     aiohttp.WSMsgType.CLOSED,
                     aiohttp.WSMsgType.CLOSING,
                 ):
-                    last_msg_type = msg.type.name
-                    close_code = self._ws.close_code if self._ws else None
-                    close_extra = getattr(msg, "extra", None)
-                    LOGGER.info(
-                        "Cast websocket close frame type=%s close_code=%s reason=%s",
-                        msg.type.name,
-                        close_code,
-                        close_extra,
-                    )
                     break
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            reader_exc = exc
             LOGGER.warning("websocket reader error: %s", exc)
         finally:
-            now = time.monotonic()
-            uptime = now - reader_started_at
-            since_last_binary = (
-                f"{now - last_binary_at:.1f}s" if last_binary_at else "n/a"
-            )
-            since_last_text = (
-                f"{now - last_text_at:.1f}s" if last_text_at else "n/a"
-            )
-            pending = self._pending_dicom_send
-            pending_summary = None
-            if pending is not None:
-                event = pending.get("event") or {}
-                pending_summary = {
-                    "id": pending.get("id"),
-                    "event": event.get("hub.event"),
-                }
-                LOGGER.warning(
-                    "websocket closed before binary completed id=%s event=%s",
-                    pending.get("id", ""),
-                    event.get("hub.event", ""),
-                )
-            if close_code is None and self._ws is not None:
-                close_code = self._ws.close_code
-            LOGGER.info(
-                "Cast websocket reader exit uptime=%.1fs last_msg=%s "
-                "text_frames=%d binary_frames=%d binary_bytes=%d "
-                "since_last_binary=%s since_last_text=%s "
-                "close_code=%s reason=%s exc=%r pending=%s",
-                uptime,
-                last_msg_type,
-                text_frames,
-                binary_frames,
-                binary_bytes,
-                since_last_binary,
-                since_last_text,
-                close_code,
-                close_extra,
-                reader_exc,
-                pending_summary,
-            )
-            self._pending_dicom_send = None
-            self._pending_dicom_send_started_at = None
-            self._pending_dicom_send_byte_length = None
-            self._pending_chunks = None
-            self._pending_chunks_received = 0
-            self._pending_chunks_total = 0
-            self._skip_next_dicom_binary = False
             if not self._closed:
                 self._resubscribe_requested = True
                 self._emit_connection_state("disconnected")
 
     def _process_binary_message(self, data: bytes) -> None:
-        if self._skip_next_dicom_binary:
-            self._skip_next_dicom_binary = False
-            return
-
-        pending = self._pending_dicom_send
-        if not pending or not isinstance(pending.get("event"), dict):
-            LOGGER.warning("unexpected binary WebSocket message")
-            return
-
-        chunked_frame_count = 0
-        if self._pending_chunks is not None:
-            self._pending_chunks.append(data)
-            self._pending_chunks_received += len(data)
-            if (
-                self._pending_chunks_total > 0
-                and self._pending_chunks_received < self._pending_chunks_total
-            ):
-                if (
-                    len(self._pending_chunks) == 1
-                    or len(self._pending_chunks) % 4 == 0
-                ):
-                    LOGGER.info(
-                        "Cast binary transfer chunk id=%s event=%s "
-                        "received=%d/%d frames=%d",
-                        pending.get("id", ""),
-                        pending["event"].get("hub.event", ""),
-                        self._pending_chunks_received,
-                        self._pending_chunks_total,
-                        len(self._pending_chunks),
-                    )
-                return
-            chunked_frame_count = len(self._pending_chunks)
-            data = b"".join(self._pending_chunks)
-            self._pending_chunks = None
-            self._pending_chunks_received = 0
-            self._pending_chunks_total = 0
-
-        self._pending_dicom_send = None
-        started_at = self._pending_dicom_send_started_at
-        announced_bytes = self._pending_dicom_send_byte_length
-        self._pending_dicom_send_started_at = None
-        self._pending_dicom_send_byte_length = None
-        event = pending["event"]
-        attached = False
-        for item in _dicom_send_context_items(event):
-            resource = item.get("resource")
-            if not isinstance(resource, dict):
-                continue
-            marker = resource.get("binaryTransfer")
-            if marker is True or marker == "ws-chunks":
-                resource = dict(resource)
-                resource.pop("binaryTransfer", None)
-                resource.pop("chunkSize", None)
-                resource.pop("chunkCount", None)
-                resource["data"] = data
-                resource["byteLength"] = len(data)
-                item["resource"] = resource
-                attached = True
-                break
-
-        if not attached:
-            LOGGER.warning("binary frame did not match pending binary Cast message")
-            return
-        LOGGER.info(
-            "dicom-send binary frame attached id=%s bytes=%d",
-            pending.get("id", ""),
+        LOGGER.warning(
+            "unexpected binary WebSocket message (%d bytes); hub uses http payloads",
             len(data),
         )
-        if started_at is not None:
-            elapsed = max(time.monotonic() - started_at, 0.0)
-            throughput = (
-                f"{(len(data) / (1024 * 1024)) / elapsed:.2f}"
-                if elapsed > 0
-                else "n/a"
-            )
-            LOGGER.info(
-                "Cast binary transfer end id=%s event=%s mode=%s bytes=%d "
-                "announcedBytes=%s frames=%d elapsed=%.2fs throughput=%s MB/s",
-                pending.get("id", ""),
-                event.get("hub.event", ""),
-                "ws-chunks" if chunked_frame_count > 0 else "ws",
-                len(data),
-                announced_bytes,
-                chunked_frame_count if chunked_frame_count > 0 else 1,
-                elapsed,
-                throughput,
-            )
-        if pending.get("id") == self._last_published_message_id:
-            return
-        self._deliver_message(pending)
 
     async def _handle_websocket_text(self, event_data: str) -> None:
         try:
@@ -1199,35 +1205,26 @@ class SlicerCastClient(CastClient):
             return
         if event.get("hub.event") == "heartbeat":
             return
+        mode = cast_binary_transfer_mode(event)
+
         if cast_message.get("id") == self._last_published_message_id:
-            if cast_binary_transfer_waits_for_binary_frame(event):
-                self._skip_next_dicom_binary = True
             return
 
-        if cast_binary_transfer_waits_for_binary_frame(event):
-            self._pending_dicom_send = cast_message
-            self._pending_dicom_send_started_at = time.monotonic()
-            self._pending_dicom_send_byte_length = dicom_send_byte_length(
-                cast_message
-            )
-            mode = cast_binary_transfer_mode(event)
-            if mode == "ws-chunks":
-                self._pending_chunks = []
-                self._pending_chunks_received = 0
-                self._pending_chunks_total = (
-                    self._pending_dicom_send_byte_length or 0
-                )
-            else:
-                self._pending_chunks = None
-                self._pending_chunks_received = 0
-                self._pending_chunks_total = 0
+        if mode == "http":
+            url = cast_binary_transfer_http_url(event)
+            if not url:
+                # Hub stripped the http marker (no payload) or marker arrived
+                # without a URL. Deliver as a plain JSON event.
+                self._deliver_message(cast_message)
+                return
+            byte_length = dicom_send_byte_length(cast_message)
             LOGGER.info(
-                "Cast binary transfer start id=%s event=%s byteLength=%s mode=%s",
+                "Cast binary transfer start id=%s event=%s byteLength=%s mode=http",
                 cast_message.get("id", ""),
-                (event or {}).get("hub.event", ""),
-                self._pending_dicom_send_byte_length,
-                mode or "ws",
+                event.get("hub.event", ""),
+                byte_length,
             )
+            self._schedule_http_payload_fetch(cast_message, url, byte_length)
             return
 
         self._deliver_message(cast_message)

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import sys
 import threading
 from typing import Any, Callable, Dict, Optional
 
@@ -13,14 +12,7 @@ from .CastServiceProviders import HUBS, USER_NAME
 from .service_provider_hub import format_connect_failure
 
 LOGGER = logging.getLogger("CastInterface.ImageDisplay")
-if not LOGGER.handlers:
-    _stderr_handler = logging.StreamHandler(sys.stderr)
-    _stderr_handler.setFormatter(
-        logging.Formatter("[%(name)s] %(levelname)s: %(message)s")
-    )
-    LOGGER.addHandler(_stderr_handler)
-    LOGGER.setLevel(logging.INFO)
-    LOGGER.propagate = False
+LOGGER.setLevel(logging.INFO)
 
 DISPLAY_PRODUCT_NAME = "3DSLICER-ID"
 DISPLAY_PRODUCT_VERSION = "1.0"

@@ -60,6 +60,9 @@ from Lib.cast_provider_runtime import (
 )
 
 LOGGER = logging.getLogger("CastInterface.TotalSegmentatorInline")
+LOGGER.setLevel(logging.INFO)
+# Propagate to Slicer's root logger (application log). Do not attach stderr handlers
+# (those show as red/error-styled output in the Error log widget).
 
 DEFAULT_PRODUCT_NAME = "TOTALSEG"
 _DICOM_SEND_EVENT = "dicom-send"
