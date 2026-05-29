@@ -26,20 +26,18 @@ Hub: The hub is the server that distributes the messages and handles the data tr
 
 Cast is an offshoot of FHIRcast (<https://fhircast.hl7.org/>). FHIRcast is the standard replacing Epic’s file drop interface for integration with PACS and reporting systems. It provides a secure messaging infrastructure using a hub with websocket subscriptions.
 
-Cast differs to FHIRcast in it's goals and features but you can use the python client in this extension to interface to FHIRcast hubs, for example, NodeOnFHIR, Medplum and Agfa (at connectathon).
+Cast is focused on desktop integration of healthcare applications. It is not restricted to a specific data format.  Cast is also not restricted to a specific authentication and authorization mechanism.  
 
-### Goal 
-
-Cast is focused on desktop integration of healthcare applications. It is not restricted to a specific data format.  Cast is also not restricted to a specific authentication and authorization mechanism; it expects that apps will authenticate with the customer's system.  
+Cast differs to FHIRcast but you can use the python client in this extension to interface to FHIRcast hubs, for example, NodeOnFHIR, Medplum and Agfa (at connectathon).
 
 
 ### Description 
 
-#### In addition to distributing FHIRcast events, the cast hub allows the following:
+In addition to distributing FHIRcast events, the Cast allows the following:
 
- - Request data from applications such as worklist context, report content, DICOM instance, DICOM tag, JPEG/PNG screenshots, scene views, etc.
+ - Request data from applications such as worklist context, report content, DICOM instance, DICOM metadata, JPEG/PNG screenshots, scene views, etc.
 
- - Support for binary files transfer; therefore payloads other than FHIR/JSON, such as DICOM, PNG, NIFTi, openEHR, OpenIGTLink.
+ - Support for binary files transfer; therefore payloads other than FHIR/JSON, such as DICOM, PNG, NIFTi,ect.  For DICOM files, the metadata provided in the transfer message allows the resource server to filter out DICOM instances that do not match their requirement. 
 
  - Group topics for multi-user workflows, such as tumor boards or interventional procedures.
 
@@ -57,26 +55,14 @@ Cast is focused on desktop integration of healthcare applications. It is not res
      - target.product.name
 
 
-The hub provides a test mock auth endpoint that assigns a user  when none is provided. For public web applications that do not need user authentication but want to use the resource servers, the mock endpoints provide the required functionality.  
-
-The hub also supports a “single-user” mode  for stand-alone applications.
-
-#### The following FHIRcast features are not supported by Cast:
-##### Context Management
-Cast hub does not support context management.  Context is to be retrieved from the relevant applications directly through the request mechanism.   In cast, the hub is a routing appliance only.  It does not look at event data; it has no storage or database;  only distribution logic.   The context management paradigm was tried 30 years ago with CCOW ( <https://en.wikipedia.org/wiki/CCOW> ).  We have to acknowledge that today all advanced radiology integrations function without a context management server. They manage with events obtained through a combination of file drops, postMessages, URL with parameters, EXEs with command-line parameters, localhost web service and socket to to socket.  
-
-
-##### OAuth 2.0 Authorization Scopes
-
-FHIRcast defines OAuth 2.0 access scopes that correspond directly to FHIRcast events. These scopes associate read or write permissions to an event. Applications that need to receive workflow related events SHOULD ask for read scopes. Applications that request context changes SHOULD ask for write scopes.
-
-
-This is related to the context management feature.  
-It is not supported in the hub OAuth handling but the client can send them.
 
 
 ### How does the cast request work?
 There is value to being able to obtain real-time information from other applications in the workfow.  For example, knowing the "sceneview" status of an Image Display application or the current content of the report editor.  This  is different than what a FHIRcast hub would know since it is relies on getting events to maintain it's context which are not generated for each user action. 
+
+The following animation shows the added resiliency and data exchange that this feature provides.
+
+The image display application has crashed and the user restarts the app without context.  It finds which study to load from the worklist client and then queries the reporting client to get the measurements in the template.  The measurements are used to populate annotation labeling drop-down in the image display tools.
 
 <p align="center">
   <img src="docs/images/request-event-flow.svg" alt="Request event flow" width="100%">
@@ -113,7 +99,9 @@ In theory, the hub can be cloud deployed as a serverless application.  In practi
 
 For high availibity deployment a  hot stand-by configuration can be used.  The "reset server" button in the hub admin portal allows testing workflow behavior during failover.
 
+The hub provides a test mock auth endpoint that assigns a user  when none is provided. For public web applications that do not need user authentication but want to use the resource servers, the mock endpoints provide the required functionality.  
 
+The hub also supports a “single-user” mode  for stand-alone applications.
 
 ## Installation
 
