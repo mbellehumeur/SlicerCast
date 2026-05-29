@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" width="1200" height="700" role="img" aria-labelledby="title desc">
   <title id="title">CAST Request Event Flow</title>
-  <desc id="desc">Animated Cast request flow: context-request via Worklist, CT loads, then report-request via Reporting.</desc>
+  <desc id="desc">Animated Cast request flow: context-request, CT load, report-request, then right-click measurement menu on the CT slice.</desc>
   <defs>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#0b1b5f" flood-opacity="0.14"/>
@@ -23,7 +23,7 @@
       .launchMsg { font: 700 18px Arial, Helvetica, sans-serif; fill: #06146b; }
 
       #imageDisplay {
-        animation: imageDisplayReveal 27s infinite;
+        animation: imageDisplayReveal 30s infinite;
       }
       @keyframes imageDisplayReveal {
         0%, 8% { opacity: 0; }
@@ -31,7 +31,7 @@
       }
 
       #imageDisplayLaunch {
-        animation: imageDisplayLaunch 27s infinite;
+        animation: imageDisplayLaunch 30s infinite;
       }
       @keyframes imageDisplayLaunch {
         0%, 8% { opacity: 1; }
@@ -39,7 +39,7 @@
         100% { opacity: 1; }
       }
 
-      #castHubGraphic { transform-origin: 600px 395px; animation: hubPulse 27s infinite; }
+      #castHubGraphic { transform-origin: 600px 395px; animation: hubPulse 30s infinite; }
       @keyframes hubPulse {
         0%, 14% { transform: scale(1); }
         16.4%, 38.4% { transform: scale(1.06); }
@@ -50,7 +50,7 @@
 
       .packetWaiting {
         opacity: 0;
-        animation: packetWaiting 27s infinite;
+        animation: packetWaiting 30s infinite;
       }
       @keyframes packetWaiting {
         0%, 9% { opacity: 0; transform: translate(600px, 270px); }
@@ -64,7 +64,7 @@
 
       .packetFanout {
         opacity: 0;
-        animation: packetFanout 27s infinite;
+        animation: packetFanout 30s infinite;
       }
       @keyframes packetFanout {
         0%, 18.1% { opacity: 0; transform: translate(555px, 460px); }
@@ -76,7 +76,7 @@
 
       .packetResponse {
         opacity: 0;
-        animation: packetResponse 27s infinite;
+        animation: packetResponse 30s infinite;
       }
       @keyframes packetResponse {
         0%, 29.4% { opacity: 0; transform: translate(300px, 455px); }
@@ -89,7 +89,7 @@
       #ctResult {
         opacity: 0;
         transform-origin: 355px 182px;
-        animation: ctResult 27s infinite;
+        animation: ctResult 30s infinite;
       }
       @keyframes ctResult {
         0%, 47.4% { opacity: 0; transform: scale(0.92); }
@@ -99,7 +99,7 @@
 
       .packetReportPost {
         opacity: 0;
-        animation: packetReportPost 27s infinite;
+        animation: packetReportPost 30s infinite;
       }
       @keyframes packetReportPost {
         0%, 52.2% { opacity: 0; transform: translate(600px, 270px); }
@@ -113,7 +113,7 @@
 
       .packetReportFanout {
         opacity: 0;
-        animation: packetReportFanout 27s infinite;
+        animation: packetReportFanout 30s infinite;
       }
       @keyframes packetReportFanout {
         0%, 58.8% { opacity: 0; transform: translate(645px, 460px); }
@@ -125,7 +125,7 @@
 
       .packetReportResponse {
         opacity: 0;
-        animation: packetReportResponse 27s infinite;
+        animation: packetReportResponse 30s infinite;
       }
       @keyframes packetReportResponse {
         0%, 66.9% { opacity: 0; transform: translate(900px, 455px); }
@@ -138,12 +138,56 @@
       #reportResult {
         opacity: 0;
         transform-origin: 845px 182px;
-        animation: reportResult 27s infinite;
+        animation: reportResult 30s infinite;
       }
       @keyframes reportResult {
         0%, 79.2% { opacity: 0; transform: scale(0.92); }
         80.7% { opacity: 1; transform: scale(1); }
         81.5%, 100% { opacity: 1; transform: scale(1); }
+      }
+
+      #ctPointerAnim {
+        opacity: 0;
+        animation: ctPointerAnim 30s infinite;
+      }
+      @keyframes ctPointerAnim {
+        0%, 84% { opacity: 0; }
+        85% { opacity: 1; }
+        97%, 100% { opacity: 1; }
+      }
+
+      #ctContextMenuAnim {
+        opacity: 0;
+        transform-origin: 340px 198px;
+        transform: scale(0.94);
+        animation: ctContextMenuAnim 30s infinite;
+      }
+      @keyframes ctContextMenuAnim {
+        0%, 86% { opacity: 0; transform: scale(0.94); }
+        87% { opacity: 1; transform: scale(1); }
+        97%, 100% { opacity: 1; transform: scale(1); }
+      }
+
+      #contextRequestCaption {
+        opacity: 0;
+        animation: contextRequestCaption 30s infinite;
+      }
+      @keyframes contextRequestCaption {
+        0%, 9.5% { opacity: 0; }
+        10% { opacity: 1; }
+        46% { opacity: 1; }
+        47.5%, 100% { opacity: 0; }
+      }
+
+      #reportRequestCaption {
+        opacity: 0;
+        animation: reportRequestCaption 30s infinite;
+      }
+      @keyframes reportRequestCaption {
+        0%, 53.5% { opacity: 0; }
+        54% { opacity: 1; }
+        79% { opacity: 1; }
+        80.5%, 100% { opacity: 0; }
       }
     </style>
   </defs>
@@ -169,6 +213,13 @@
     <text x="600" y="247" text-anchor="middle" class="small">with medical images</text>
   </g>
 
+  <!-- Caption during context-request (top-left of CT viewport area) -->
+  <g id="contextRequestCaption">
+    <rect x="262" y="118" width="188" height="48" rx="8" fill="#0f172a" opacity="0.88"/>
+    <text x="272" y="138" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#ffffff">Image Display asks for</text>
+    <text x="272" y="154" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#ffffff">worklist context</text>
+  </g>
+
   <!-- CT result appears after the HTTP response returns -->
   <g id="ctResult">
     <rect class="panel" x="245" y="95" width="220" height="175" rx="18"/>
@@ -187,6 +238,13 @@
       <rect x="255" y="108" width="200" height="150" fill="url(#ctVignette)" opacity="0.35"/>
     </g>
     <text x="355" y="252" text-anchor="middle" class="small">CT Chest</text>
+  </g>
+
+  <!-- Caption during report-request (top-left of report template viewport area) -->
+  <g id="reportRequestCaption">
+    <rect x="752" y="118" width="188" height="48" rx="8" fill="#0f172a" opacity="0.88"/>
+    <text x="762" y="138" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#ffffff">Image Display asks for</text>
+    <text x="762" y="154" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#ffffff">report content</text>
   </g>
 
   <!-- Report template appears after report-request returns to Image Display -->
@@ -289,5 +347,23 @@
   <g class="packetReportResponse">
     <rect x="-72" y="-14" width="144" height="28" rx="14" fill="#1f9d55"/>
     <text x="0" y="5" text-anchor="middle" class="packetText">report-response</text>
+  </g>
+
+  <!-- Right-click measurements menu on CT slice (final step) -->
+  <g id="ctPointerAnim" transform="translate(328, 176)">
+    <path fill="#ffffff" stroke="#000000" stroke-width="1.25" stroke-linejoin="round" d="M0 0V18.5L4.8 14.2H7.8L10.8 22.5L13.2 14.2H17.8V18.5L12.8 11.2L20.5 8L12.8 4.8L0 0Z"/>
+  </g>
+  <g id="ctContextMenuAnim">
+    <rect x="338" y="192" width="168" height="118" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#shadow)"/>
+    <rect x="338" y="192" width="168" height="22" rx="6" fill="#eff6ff"/>
+    <text x="350" y="207" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#06146b">Measurement 1</text>
+    <line x1="338" y1="214" x2="506" y2="214" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="350" y="229" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#06146b">Measurement 2</text>
+    <line x1="338" y1="236" x2="506" y2="236" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="350" y="251" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#06146b">Measurement 3</text>
+    <line x1="338" y1="258" x2="506" y2="258" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="350" y="273" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#06146b">Measurement 4</text>
+    <line x1="338" y1="280" x2="506" y2="280" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="350" y="295" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#06146b">Measurement 5</text>
   </g>
 </svg>

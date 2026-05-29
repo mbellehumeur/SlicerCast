@@ -26,7 +26,7 @@ Hub: The hub is the server that distributes the messages and handles the data tr
 
 Cast is an offshoot of FHIRcast (<https://fhircast.hl7.org/>). FHIRcast is the standard replacing Epic’s file drop interface for integration with PACS and reporting systems. It provides a secure messaging infrastructure using a hub with websocket subscriptions.
 
-Cast is focused on desktop integration of healthcare applications. It is not restricted to a specific data format.  Cast is also not restricted to a specific authentication and authorization mechanism.  
+Cast is focused on desktop integration of healthcare applications. It is not restricted to a specific data format.  Cast is not restricted to a specific authentication and authorization mechanism.  Cast has a context sharing strategy that differs from FHIRcast (described here)
 
 Cast differs to FHIRcast but you can use the python client in this extension to interface to FHIRcast hubs, for example, NodeOnFHIR, Medplum and Agfa (at connectathon).
 
@@ -70,9 +70,20 @@ The image display application has crashed and the user restarts the app without 
 
 
 
+### How does the binary file transfer work?
+
+Binary file transfer uses a Content-Type: multipart/form-data to the hub.  The hub sends a websocket notification to the event subscribers describing the files received and prvides a short lived URL for their download.
+
+File names are restricted by an ALLOW list and other measure are described here.
 
 
-### Security Benefits for Resource Servers
+<p align="center">
+  <img src="docs/images/binary-file-transfer.svg" alt="Binary file transfer" width="100%">
+</p>
+
+
+
+### Security Benefits for cloud deplotment of Resource Servers
 
 This architecture protects resource servers by eliminating direct inbound internet exposure entirely.
 
@@ -86,14 +97,7 @@ For the hub, when it is on the internet, it provides a significantly reduced att
 </p>
 
 
-### How does the binary file transfer work?
 
-<p align="center">
-  <img src="docs/images/binary-file-transfer.svg" alt="Binary file transfer" width="100%">
-</p>
-
-
-### Cloud deployment
 
 In theory, the hub can be cloud deployed as a serverless application.  In practice, many of those low cost offerings do not support websocket services and a docker based offering is necessary like  Azure WebApps or AWS elastic beanstalk.  
 
