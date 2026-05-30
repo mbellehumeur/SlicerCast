@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" width="1200" height="700" role="img" aria-labelledby="isoTitle isoDesc">
   <title id="isoTitle">ImagingStudy-open event flow</title>
-  <desc id="isoDesc">User selects exam on worklist, publishes imagingstudy-open, hub WebSocket fan-out to Image Display, Reporting, and EHR.</desc>
+  <desc id="isoDesc">User selects exam on worklist, publishes imagingstudy-open, hub WebSocket fan-out to Image Display, Reporting, and EHR; apps update together.</desc>
   <defs>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#0b1b5f" flood-opacity="0.14"/>
@@ -30,11 +30,29 @@
       .wlUserNoteText { font: 700 16px Arial, Helvetica, sans-serif; fill: #06146b; }
       .wlUserNoteSub { font: 600 12px Arial, Helvetica, sans-serif; fill: #334155; }
 
-      #wlUserNote { animation: wlUserNote 18s infinite; }
-      @keyframes wlUserNote {
+      #wlUserCallout { opacity: 0; animation: wlUserCallout 18s infinite; }
+      @keyframes wlUserCallout {
+        0%, 1.99% { opacity: 0; }
+        2%, 96% { opacity: 1; }
+        96.01%, 100% { opacity: 0; }
+      }
+      #wlUserOpeningFigure { animation: wlUserOpeningFigure 18s infinite; }
+      #wlUserOpeningLabels { animation: wlUserOpeningLabels 18s infinite; }
+      @keyframes wlUserOpeningFigure {
+        0%, 1.99% { opacity: 0; }
+        2%, 41.99% { opacity: 1; }
+        42%, 100% { opacity: 0; }
+      }
+      @keyframes wlUserOpeningLabels {
         0%, 1.99% { opacity: 0; }
         2%, 34% { opacity: 1; }
-        35%, 100% { opacity: 0; }
+        34.01%, 100% { opacity: 0; }
+      }
+      #wlUserCelebratePose { opacity: 0; animation: wlUserCelebratePose 18s infinite; }
+      @keyframes wlUserCelebratePose {
+        0%, 41.99% { opacity: 0; }
+        42%, 96% { opacity: 1; }
+        96.01%, 100% { opacity: 0; }
       }
 
       #worklistShell { animation: worklistShell 18s infinite; }
@@ -81,8 +99,8 @@
       #step3Caption { animation: step3Caption 18s infinite; }
       @keyframes step3Caption {
         0%, 41.99% { opacity: 0; }
-        42%, 88% { opacity: 1; }
-        90%, 100% { opacity: 0; }
+        42%, 86% { opacity: 1; }
+        87%, 100% { opacity: 0; }
       }
 
       #linePost { animation: linePost 18s infinite; }
@@ -194,20 +212,32 @@
   <path id="lineWsReport" class="connWs" d="M600 390 L985 402"/>
   <path id="lineWsEhr" class="connWs" d="M600 390 L215 402"/>
 
-  <g id="wlUserNote">
+  <g id="wlUserCallout">
     <rect class="panel" x="268" y="508" width="214" height="118" rx="12"/>
-    <g id="wlUserFigure" transform="translate(288, 528)">
+    <g id="wlUserOpeningFigure">
+      <g transform="translate(288, 528)">
+        <circle cx="26" cy="18" r="15" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/>
+        <path d="M10 42 Q26 34 42 42 L38 78 Q26 86 14 78 Z" fill="#2563eb" stroke="#1d4ed8" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M38 46 L62 58 L58 64 L34 52 Z" fill="#2563eb" stroke="#1d4ed8" stroke-width="1.2" stroke-linejoin="round"/>
+        <circle cx="60" cy="61" r="4" fill="#fde8d8" stroke="#d4a574" stroke-width="1"/>
+        <path d="M18 44 L4 56" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/>
+      </g>
+    </g>
+    <g id="wlUserOpeningLabels">
+      <text x="378" y="562" text-anchor="middle" class="wlUserNoteText">User opens</text>
+      <text x="378" y="582" text-anchor="middle" class="wlUserNoteText">from worklist</text>
+      <text x="378" y="602" text-anchor="middle" class="wlUserNoteSub">clinician action</text>
+      <path d="M482 562 L490 562" fill="none" stroke="#64748b" stroke-width="2.5" stroke-linecap="round"/>
+      <polygon points="490,562 483,557 483,567" fill="#64748b"/>
+    </g>
+    <g id="wlUserCelebratePose" transform="translate(332, 520)">
       <circle cx="26" cy="18" r="15" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/>
       <path d="M10 42 Q26 34 42 42 L38 78 Q26 86 14 78 Z" fill="#2563eb" stroke="#1d4ed8" stroke-width="1.5" stroke-linejoin="round"/>
-      <path d="M38 46 L62 58 L58 64 L34 52 Z" fill="#2563eb" stroke="#1d4ed8" stroke-width="1.2" stroke-linejoin="round"/>
-      <circle cx="60" cy="61" r="4" fill="#fde8d8" stroke="#d4a574" stroke-width="1"/>
-      <path d="M18 44 L4 56" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/>
+      <path d="M14 40 L6 22" fill="none" stroke="#2563eb" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="M38 40 L46 22" fill="none" stroke="#2563eb" stroke-width="3.5" stroke-linecap="round"/>
+      <circle cx="6" cy="20" r="4" fill="#fde8d8" stroke="#d4a574" stroke-width="1"/>
+      <circle cx="46" cy="20" r="4" fill="#fde8d8" stroke="#d4a574" stroke-width="1"/>
     </g>
-    <text x="378" y="562" text-anchor="middle" class="wlUserNoteText">User opens</text>
-    <text x="378" y="582" text-anchor="middle" class="wlUserNoteText">from worklist</text>
-    <text x="378" y="602" text-anchor="middle" class="wlUserNoteSub">clinician action</text>
-    <path d="M482 562 L490 562" fill="none" stroke="#64748b" stroke-width="2.5" stroke-linecap="round"/>
-    <polygon points="490,562 483,557 483,567" fill="#64748b"/>
   </g>
 
   <!-- Hub (center) -->
