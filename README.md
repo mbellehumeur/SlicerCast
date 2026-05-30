@@ -26,9 +26,7 @@ Hub: The hub is the server that distributes the messages and handles the data tr
 
 Cast is an offshoot of FHIRcast (<https://fhircast.hl7.org/>). FHIRcast is the standard replacing Epic’s file drop interface for integration with PACS and reporting systems. It provides a secure messaging infrastructure using a hub with websocket subscriptions.
 
-Cast is focused on desktop integration of healthcare applications. It is not restricted to a specific data format.  Cast is not restricted to a specific authentication and authorization mechanism.  Cast has a context sharing strategy that differs from FHIRcast (described here)
-
-Cast differs to FHIRcast but you can use the python client in this extension to interface to FHIRcast hubs, for example, NodeOnFHIR, Medplum and Agfa (at connectathon).
+Cast is focused on desktop integration of healthcare applications. It is not restricted to a specific data format or authentication/authorization mechanism.  Cast also has a context sharing strategy and architecture that diverges from FHIRcast (described here).
 
 
 ### Description 
@@ -37,7 +35,9 @@ In addition to distributing FHIRcast events, the Cast allows the following:
 
  - Request data from applications such as worklist context, report content, DICOM instance, DICOM metadata, JPEG/PNG screenshots, scene views, etc.
 
- - Support for binary files transfer; therefore payloads other than FHIR/JSON, such as DICOM, PNG, NIFTi,ect.  For DICOM files, the metadata provided in the transfer message allows the resource server to filter out DICOM instances that do not match their requirement. 
+ - Support for binary files transfer; therefore payloads other than FHIR/JSON, such as DICOM, PNG, NIFTi,ect. 
+
+ - Support for resource servers.
 
  - Group topics for multi-user workflows, such as tumor boards or interventional procedures.
 
@@ -62,7 +62,7 @@ There is value to being able to obtain real-time information from other applicat
 
 The following animation shows the added resiliency and data exchange that this feature provides.
 
-The image display application has crashed and the user restarts the app without context.  It finds which study to load from the worklist client and then queries the reporting client to get the measurements in the template.  The measurements are used to populate annotation labeling drop-down in the image display tools.
+*Animation description:  The image display application has crashed and the user restarts the app without context.  It finds which study to load from the worklist client and then queries the reporting client to get the measurements in the template.  The measurements are used to populate annotation labeling drop-down in the image display tools.*
 
 <p align="center">
   <img src="docs/images/request-event-flow.svg" alt="Request event flow" width="100%">
