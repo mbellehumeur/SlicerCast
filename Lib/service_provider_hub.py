@@ -13,6 +13,7 @@ from .cast_client import (
     data_type_from_event_name,
     dicom_send_byte_length,
     dicom_send_file_name,
+    has_pending_payload,
     hub_event_name,
     is_request_event,
     request_context,
@@ -341,6 +342,20 @@ class ServiceProviderHubConnection:
 
                 event = message.get("event") or {}
                 hub_event = event.get("hub.event", "")
+                if has_pending_payload(event):
+                    try:
+                        message = await self._client.fetch_all_payloads(message)
+                        event = message.get("event") or {}
+                        hub_event = event.get("hub.event", "")
+                    except Exception as exc:
+                        LOGGER.warning(
+                            "fetch_payload failed id=%s product=%s: %s",
+                            message.get("id"),
+                            self._product_name,
+                            exc,
+                        )
+                        continue
+
                 if hub_event == "dicom-send":
                     LOGGER.info(
                         "received dicom-send id=%s topic=%s file=%s bytes=%d product=%s",

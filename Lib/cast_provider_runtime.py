@@ -67,32 +67,33 @@ def _file_name_from_resource(resource: Dict[str, Any], index: int) -> str:
     return f"dicom-send-{index + 1}.dcm"
 
 
-def dicom_send_is_complete(event: Dict[str, Any]) -> bool:
-    for item in _dicom_send_context_items(event):
-        if str(item.get("status", "")).strip().lower() == "complete":
-            return True
-    return False
-
-
-def dicom_transfer_id_from_event(event: Dict[str, Any]) -> Optional[str]:
-    for item in _dicom_send_context_items(event):
-        transfer_id = item.get("dicomTransferId")
-        if isinstance(transfer_id, str) and transfer_id.strip():
-            return transfer_id.strip()
-    return None
+def _file_name_from_stow_entry(entry: Dict[str, Any], index: int) -> str:
+    name = entry.get("fileName")
+    if isinstance(name, str) and name.strip():
+        return name.strip()
+    return f"dicom-send-{index + 1}.dcm"
 
 
 def extract_all_dicom_send_payloads(
     message: Dict[str, Any],
 ) -> List[Tuple[str, bytes]]:
-    """Return every ``(fileName, raw bytes)`` in a ``dicom-send`` context list."""
+    """Return every ``(fileName, raw bytes)`` in a ``dicom-send`` message."""
     event = message.get("event") or {}
     if not isinstance(event, dict) or event.get("hub.event") != "dicom-send":
         return []
-    if dicom_send_is_complete(event):
-        return []
 
     context = event.get("context")
+    if isinstance(context, dict) and isinstance(context.get("files"), list):
+        payloads: List[Tuple[str, bytes]] = []
+        for index, entry in enumerate(context["files"]):
+            if not isinstance(entry, dict):
+                continue
+            raw = _dicom_bytes_from_resource(entry)
+            if raw:
+                payloads.append((_file_name_from_stow_entry(entry, index), raw))
+        if payloads:
+            return payloads
+
     if isinstance(context, dict) and isinstance(context.get("resource"), dict):
         resource = context["resource"]
         raw = _dicom_bytes_from_resource(resource)

@@ -61,7 +61,6 @@ def build_image_display_client(
     )
     options = CastClientOptions(
         auto_reconnect=AUTO_RECONNECT,
-        quiet_hub_errors=True,
         preserve_session_topic_from_token=True,
     )
     return SlicerCastClient(hub, session, options)

@@ -19,9 +19,6 @@ Why this is safe (cross-references to ``Lib/service_provider_hub.py``):
 
 Behavior differences vs ``total_segmentator.py``:
 
-- Duplicate ``status: complete`` for the same ``dicomTransferId`` is detected
-  via "no entry in ``_transfer_states``" (popped after each run). Same
-  outcome as the old ``processing`` flag.
 - A second ``nifti-send`` for the same topic that arrives while a previous
   job is still running is **queued and run** sequentially instead of being
   skipped (the old code dropped it via ``processing=True``). Messages are
@@ -45,10 +42,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from Lib.cast_client import request_context
 from Lib.cast_provider_runtime import (
-    dicom_send_is_complete,
-    dicom_transfer_id_from_event,
     extract_all_dicom_send_payloads,
     extract_all_nifti_send_payloads,
     get_active_provider_products,
@@ -56,7 +50,6 @@ from Lib.cast_provider_runtime import (
     publish_nifti_send_file,
     record_dicom_send_received,
     record_nifti_send_received,
-    send_cast_request_response,
 )
 
 LOGGER = logging.getLogger("CastInterface.TotalSegmentatorInline")
@@ -78,9 +71,6 @@ OUTPUT_NIFTI_NAME = "segmentations.nii.gz"
 # hub awaits one handler at a time per provider connection (see module
 # docstring). No lock is needed.
 _topic_states: Dict[str, "_TopicStaging"] = {}
-_transfer_states: Dict[str, "_TransferStaging"] = {}
-
-_REJECT_DICOM_TRANSFER_REASON = "rejected by TotalSegmentator (transfer disabled)"
 
 
 def _safe_topic_dir_name(topic: str) -> str:
@@ -95,79 +85,15 @@ class _TopicStaging:
     input_dir: Path
 
 
-@dataclass
-class _TransferStaging:
-    dicom_transfer_id: str
-    topic: str
-    product_name: str
-    input_dir: Path
-
-
 def onMessage(message: Dict[str, Any], provider: Any) -> None:
     event = message.get("event") or {}
     hub_event = event.get("hub.event")
     if hub_event == _NIFTI_SEND_EVENT:
         _on_nifti_send(message, event, provider)
         return
-    if hub_event == "dicomtransfer-request":
-        _on_dicomtransfer_request(message, event, provider)
-        return
     if hub_event != _DICOM_SEND_EVENT:
         return
     _on_dicom_send(message, event, provider)
-
-
-def _on_dicomtransfer_request(
-    message: Dict[str, Any], event: Dict[str, Any], provider: Any
-) -> None:
-    topic = (event.get("hub.topic") or "").strip()
-    ctx = request_context(message)
-    request_id = str(ctx.get("id") or message.get("id") or "").strip()
-    dicom_transfer_id = str(ctx.get("dicomTransferId") or "").strip()
-    files = ctx.get("files")
-    if not request_id:
-        LOGGER.warning("TotalSegmentator: dicomtransfer-request missing correlation id")
-        return
-    if not dicom_transfer_id:
-        LOGGER.warning("TotalSegmentator: dicomtransfer-request missing dicomTransferId")
-        return
-    if not isinstance(files, list) or not files:
-        LOGGER.warning(
-            "TotalSegmentator: dicomtransfer-request id=%s has no files",
-            request_id,
-        )
-        return
-
-    product_name = getattr(provider, "product_name", "") or DEFAULT_PRODUCT_NAME
-    decisions = []
-    for entry in files:
-        if not isinstance(entry, dict):
-            continue
-        decision: Dict[str, Any] = {
-            "fileName": str(entry.get("fileName") or ""),
-            "status": "ACCEPT",
-            "reason": _REJECT_DICOM_TRANSFER_REASON,
-        }
-        sop_uid = entry.get("sopInstanceUID")
-        if isinstance(sop_uid, str) and sop_uid.strip():
-            decision["sopInstanceUID"] = sop_uid.strip()
-        decisions.append(decision)
-
-    payload = {"dicomTransferId": dicom_transfer_id, "decisions": decisions}
-    if send_cast_request_response(
-        product_name, request_id, "dicomtransfer", payload, topic or None
-    ):
-        LOGGER.info(
-            "TotalSegmentator sent dicomtransfer-response id=%s transfer=%s files=%d",
-            request_id,
-            dicom_transfer_id,
-            len(decisions),
-        )
-    else:
-        LOGGER.warning(
-            "TotalSegmentator failed to send dicomtransfer-response id=%s",
-            request_id,
-        )
 
 
 def _on_dicom_send(
@@ -176,17 +102,6 @@ def _on_dicom_send(
     topic = (event.get("hub.topic") or "").strip()
     if not topic:
         LOGGER.warning("TotalSegmentator onMessage: dicom-send missing hub.topic")
-        return
-
-    if dicom_send_is_complete(event):
-        transfer_id = dicom_transfer_id_from_event(event)
-        if transfer_id:
-            _on_dicom_transfer_complete(transfer_id, topic, provider)
-        else:
-            LOGGER.info(
-                "TotalSegmentator: dicom-send complete without dicomTransferId topic=%s",
-                topic,
-            )
         return
 
     payloads = extract_all_dicom_send_payloads(message)
@@ -199,24 +114,31 @@ def _on_dicom_send(
         return
 
     product_name = getattr(provider, "product_name", "") or DEFAULT_PRODUCT_NAME
-    transfer_id = dicom_transfer_id_from_event(event)
     LOGGER.info(
-        "TotalSegmentator onMessage: dicom-send id=%s topic=%s files=%d transfer=%s",
+        "TotalSegmentator onMessage: dicom-send id=%s topic=%s files=%d",
         message.get("id", ""),
         topic,
         len(payloads),
-        transfer_id or "(legacy)",
     )
 
-    if transfer_id:
-        staging = _get_or_create_transfer_staging(
-            transfer_id, topic, product_name
-        )
-    else:
-        staging = _get_or_create_staging(topic, product_name)
+    staging = _get_or_create_staging(topic, product_name)
     for file_name, data in payloads:
         record_dicom_send_received(topic, len(data))
         _stage_file(staging, file_name, data)
+
+    # TEMPORARY: remove after hub download-speed testing (skips TotalSegmentator).
+    total_bytes = sum(len(data) for _, data in payloads)
+    LOGGER.warning(
+        "TEMPORARY exit after dicom download+stage id=%s topic=%s files=%d "
+        "bytes=%d input_dir=%s",
+        message.get("id", ""),
+        topic,
+        len(payloads),
+        total_bytes,
+        staging.input_dir,
+    )
+    return
+    # _run_topic_segmentation(topic, _DICOM_SEND_EVENT)  # TEMPORARY: re-enable above
 
 
 def _on_nifti_send(
@@ -251,60 +173,6 @@ def _on_nifti_send(
     _run_topic_segmentation(topic, _NIFTI_SEND_EVENT)
 
 
-def _get_or_create_transfer_staging(
-    dicom_transfer_id: str, topic: str, product_name: str
-) -> _TransferStaging:
-    state = _transfer_states.get(dicom_transfer_id)
-    if state is None:
-        base = (
-            Path(tempfile.gettempdir())
-            / "cast-totalseg"
-            / "transfers"
-            / _safe_topic_dir_name(dicom_transfer_id)
-        )
-        input_dir = base / "input"
-        input_dir.mkdir(parents=True, exist_ok=True)
-        state = _TransferStaging(
-            dicom_transfer_id=dicom_transfer_id,
-            topic=topic,
-            product_name=product_name,
-            input_dir=input_dir,
-        )
-        _transfer_states[dicom_transfer_id] = state
-    else:
-        state.topic = topic
-        state.product_name = product_name
-    return state
-
-
-def _on_dicom_transfer_complete(
-    dicom_transfer_id: str, topic: str, provider: Any
-) -> None:
-    state = _transfer_states.get(dicom_transfer_id)
-    if state is None:
-        LOGGER.info(
-            "TotalSegmentator: ignoring duplicate complete transfer=%s",
-            dicom_transfer_id,
-        )
-        return
-    staged_files = _count_input_files(state.input_dir)
-    LOGGER.info(
-        "TotalSegmentator: dicom-send complete transfer=%s topic=%s staged_files=%d; starting one job",
-        dicom_transfer_id,
-        topic,
-        staged_files,
-    )
-    try:
-        _run_segmentation_job_body(
-            state.topic,
-            state.product_name,
-            state.input_dir,
-            _DICOM_SEND_EVENT,
-        )
-    finally:
-        _transfer_states.pop(dicom_transfer_id, None)
-
-
 def _get_or_create_staging(topic: str, product_name: str) -> _TopicStaging:
     state = _topic_states.get(topic)
     if state is None:
@@ -329,13 +197,6 @@ def _stage_file(staging: _TopicStaging, file_name: str, data: bytes) -> None:
     if name.lower().endswith(".zip"):
         zip_path = staging.input_dir / name
         zip_path.write_bytes(data)
-        LOGGER.info(
-            "TotalSegmentator received file topic=%s name=%s bytes=%d path=%s",
-            staging.topic,
-            name,
-            len(data),
-            zip_path,
-        )
         try:
             with zipfile.ZipFile(zip_path, "r") as archive:
                 members = [
@@ -345,16 +206,6 @@ def _stage_file(staging: _TopicStaging, file_name: str, data: bytes) -> None:
                 ]
                 archive.extractall(staging.input_dir)
             zip_path.unlink(missing_ok=True)
-            for member in members:
-                member_path = staging.input_dir / member
-                size = member_path.stat().st_size if member_path.is_file() else 0
-                LOGGER.info(
-                    "TotalSegmentator received file topic=%s name=%s bytes=%d path=%s (from zip)",
-                    staging.topic,
-                    os.path.basename(member),
-                    size,
-                    member_path,
-                )
             LOGGER.info(
                 "TotalSegmentator extracted %d file(s) from zip into %s",
                 len(members),
@@ -366,13 +217,6 @@ def _stage_file(staging: _TopicStaging, file_name: str, data: bytes) -> None:
 
     dest = staging.input_dir / name
     dest.write_bytes(data)
-    LOGGER.info(
-        "TotalSegmentator received file topic=%s name=%s bytes=%d path=%s",
-        staging.topic,
-        name,
-        len(data),
-        dest,
-    )
 
 
 def _run_topic_segmentation(topic: str, hub_event: str) -> None:

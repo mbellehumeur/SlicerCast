@@ -37,17 +37,17 @@ HUBS: Dict[str, Dict[str, Any]] = {
         "lease": 999,
     },
     "SLICER-HUB": {
-        "hub_endpoint": "http://localhost:2017/api/hub",
-        "authorization_endpoint": "http://localhost:2017/oauth/authorize",
-        "token_endpoint": "http://localhost:2017/oauth/token",
+        "hub_endpoint": "http://127.0.0.1:2017/api/hub",
+        "authorization_endpoint": "http://127.0.0.1:2017/oauth/authorize",
+        "token_endpoint": "http://127.0.0.1:2017/oauth/token",
         "client_id": "130c3d9c-4157-4dd1-aa1d-slicer",
         "client_secret": "0c931e4163c1bc984b5266735dc652a2f1e3e6e8d8cfe5b0855f433cc8ff018f",
         "lease": 999,
     },
     "VOLVIEW-HUB": {
-        "hub_endpoint": "http://localhost:4014/api/hub",
-        "authorization_endpoint": "http://localhost:4014/oauth/authorize",
-        "token_endpoint": "http://localhost:4014/oauth/token",
+        "hub_endpoint": "http://127.0.0.1:4014/api/hub",
+        "authorization_endpoint": "http://127.0.0.1:4014/oauth/authorize",
+        "token_endpoint": "http://127.0.0.1:4014/oauth/token",
         "client_id": "130c3d9c-4157-4dd1-aa1d-slicer",
         "client_secret": "0c931e4163c1bc984b5266735dc652a2f1e3e6e8d8cfe5b0855f433cc8ff018f",
         "lease": 999,
@@ -90,7 +90,7 @@ DEFAULT_TOTALSEG_SCRIPT_PATH = default_totalsegmentator_script_path()
 DEFAULT_TOTALSEG_PRODUCT_NAME = "TOTALSEG"
 DEFAULT_TOTALSEG_DESCRIPTION = "Total Segmentator CT segmentation (DICOM RT Struct out)"
 EVENTS = ["dicom-send", "nifti-send"]
-TOTALSEG_EVENTS = ["dicom-send", "nifti-send", "dicomtransfer-request"]
+TOTALSEG_EVENTS = ["dicom-send", "nifti-send"]
 TOTALSEG_SCRIPT_BASENAME = "total_segmentator_inline.py"
 ACTORS = ["EC"]
 USER_NAME = "3dslicer-server"
@@ -290,7 +290,6 @@ def build_cast_client(
     )
     options = CastClientOptions(
         auto_reconnect=AUTO_RECONNECT,
-        quiet_hub_errors=True,
     )
     return SlicerCastClient(hub, session, options)
 
