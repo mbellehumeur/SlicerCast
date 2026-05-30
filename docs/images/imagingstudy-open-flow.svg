@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" width="1200" height="700" role="img" aria-labelledby="isoTitle isoDesc">
   <title id="isoTitle">ImagingStudy-open event flow</title>
-  <desc id="isoDesc">User selects exam on worklist, publishes imagingstudy-open, hub WebSocket fan-out to Image Display, Reporting, and EHR; apps update together.</desc>
+  <desc id="isoDesc">User selects exam on worklist, publishes imagingstudy-open; hub satellite dish broadcasts over WebSocket to Image Display, Reporting, and EHR; apps update together.</desc>
   <defs>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#0b1b5f" flood-opacity="0.14"/>
@@ -72,11 +72,17 @@
         16.01%, 100% { opacity: 0; }
       }
 
-      #castHubGraphic { transform-origin: 600px 390px; animation: hubPulse 18s infinite; }
+      #castHubGraphic { transform-origin: 0px 0px; animation: hubPulse 18s infinite; }
       @keyframes hubPulse {
         0%, 25% { transform: scale(1); }
         27%, 43% { transform: scale(1.06); }
         45%, 100% { transform: scale(1); }
+      }
+      #hubBroadcastArcs { opacity: 0.4; animation: hubBroadcastArcs 18s infinite; }
+      @keyframes hubBroadcastArcs {
+        0%, 34.99% { opacity: 0.4; }
+        35%, 86% { opacity: 1; }
+        87%, 100% { opacity: 0.4; }
       }
       #step0Caption { animation: step0Caption 18s infinite; }
       @keyframes step0Caption {
@@ -240,22 +246,8 @@
     </g>
   </g>
 
-  <!-- Hub (center) -->
   <g id="castHub">
-    <g id="castHubGraphic">
-      <circle cx="600" cy="390" r="18" fill="#0b55d9"/>
-      <circle cx="600" cy="328" r="9" fill="#0b55d9"/>
-      <circle cx="545" cy="360" r="12" fill="#0b55d9"/>
-      <circle cx="655" cy="360" r="12" fill="#0b55d9"/>
-      <circle cx="555" cy="435" r="12" fill="#0b55d9"/>
-      <circle cx="645" cy="435" r="12" fill="#0b55d9"/>
-      <line x1="600" y1="390" x2="600" y2="328" stroke="#0b55d9" stroke-width="8"/>
-      <line x1="600" y1="390" x2="545" y2="360" stroke="#0b55d9" stroke-width="8"/>
-      <line x1="600" y1="390" x2="655" y2="360" stroke="#0b55d9" stroke-width="8"/>
-      <line x1="600" y1="390" x2="555" y2="435" stroke="#0b55d9" stroke-width="8"/>
-      <line x1="600" y1="390" x2="645" y2="435" stroke="#0b55d9" stroke-width="8"/>
-    </g>
-    <text x="678" y="398" text-anchor="start" class="heading">Hub</text>
+    <text x="700" y="430" text-anchor="start" class="heading">Hub</text>
   </g>
 
   <!-- Worklist (bottom, star spoke) -->
@@ -374,6 +366,22 @@
     <text x="134" y="408" font-family="Arial" font-size="10" fill="#134e4a">Allergies / Meds</text>
     <line x1="218" y1="408" x2="296" y2="408" stroke="#5eead4" stroke-width="2" stroke-linecap="round"/>
     <text x="215" y="488" text-anchor="middle" font-family="Arial" font-size="11" font-weight="700" fill="#0d9488">EHR</text>
+  </g>
+
+  <!-- Hub: iconic dish pointing top-right with broadcast waves -->
+  <g transform="translate(600, 390)">
+    <g id="castHubGraphic">
+      <g transform="rotate(-42)">
+        <g id="hubBroadcastArcs" fill="none" stroke="#38bdf8" stroke-linecap="round">
+          <path d="M54 -14 A 18 18 0 0 1 54 14" stroke-width="3"/>
+          <path d="M64 -26 A 30 30 0 0 1 64 26" stroke-width="2.5" opacity="0.8"/>
+          <path d="M74 -40 A 44 44 0 0 1 74 40" stroke-width="2" opacity="0.55"/>
+        </g>
+        <g id="hubDish">
+          <circle cx="0" cy="0" r="20" fill="#e0f2fe" stroke="#1e40af" stroke-width="4"/>
+        </g>
+      </g>
+    </g>
   </g>
 
   <!-- Packets: green POST, blue WebSocket -->

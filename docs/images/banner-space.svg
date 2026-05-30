@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1983 793" width="1983" height="793" role="img" aria-labelledby="bannerSpaceTitle bannerSpaceDesc">
+  <title id="bannerSpaceTitle">Cast Interface - Hub satellite broadcast to 3D Slicer</title>
+  <desc id="bannerSpaceDesc">Cast hub as a satellite with a broadcast antenna beaming to 3D Slicer in space.</desc>
+  <defs>
+    <linearGradient id="spaceBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#030712"/>
+      <stop offset="45%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <radialGradient id="nebula" cx="72%" cy="28%" r="55%">
+      <stop offset="0%" stop-color="#312e81" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#312e81" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="earthGlow" cx="50%" cy="120%" r="75%">
+      <stop offset="0%" stop-color="#1d4ed8" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="beamGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.15"/>
+      <stop offset="55%" stop-color="#22d3ee" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#60a5fa" stop-opacity="0.2"/>
+    </linearGradient>
+    <radialGradient id="slicerCore" cx="40%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="35%" stop-color="#cbd5e1"/>
+      <stop offset="100%" stop-color="#64748b"/>
+    </radialGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="textGlow">
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#38bdf8" flood-opacity="0.65"/>
+    </filter>
+  </defs>
+
+  <rect width="1983" height="793" fill="url(#spaceBg)"/>
+  <rect width="1983" height="793" fill="url(#nebula)"/>
+  <rect width="1983" height="793" fill="url(#earthGlow)"/>
+
+  <g fill="#ffffff" opacity="0.85">
+    <circle cx="120" cy="88" r="1.2"/><circle cx="310" cy="142" r="1"/><circle cx="480" cy="56" r="1.4"/>
+    <circle cx="640" cy="118" r="0.9"/><circle cx="890" cy="74" r="1.1"/><circle cx="1040" cy="168" r="1"/>
+    <circle cx="1280" cy="92" r="1.3"/><circle cx="1510" cy="48" r="0.8"/><circle cx="1720" cy="132" r="1.2"/>
+    <circle cx="1860" cy="64" r="1"/><circle cx="220" cy="220" r="0.9"/><circle cx="560" cy="260" r="1.1"/>
+    <circle cx="780" cy="190" r="1"/><circle cx="1120" cy="240" r="0.8"/><circle cx="1380" cy="200" r="1.3"/>
+    <circle cx="1640" cy="280" r="1"/><circle cx="1900" cy="210" r="0.9"/><circle cx="90" cy="360" r="1"/>
+    <circle cx="420" cy="420" r="0.8"/><circle cx="1750" cy="380" r="1.1"/><circle cx="1920" cy="520" r="1"/>
+    <circle cx="160" cy="580" r="1.2"/><circle cx="980" cy="620" r="0.9"/><circle cx="1420" cy="560" r="1"/>
+    <circle cx="1820" cy="640" r="1.1"/><circle cx="260" cy="700" r="0.8"/><circle cx="720" cy="720" r="1"/>
+  </g>
+  <g fill="#ffffff" opacity="0.35">
+    <circle cx="350" cy="180" r="0.6"/><circle cx="920" cy="320" r="0.7"/><circle cx="1250" cy="440" r="0.6"/>
+    <circle cx="600" cy="520" r="0.5"/><circle cx="1580" cy="180" r="0.7"/><circle cx="80" cy="480" r="0.6"/>
+  </g>
+
+  <!-- Broadcast beam: dish toward 3D Slicer -->
+  <path d="M680 395 L1580 395 L1540 455 L720 455 Z" fill="url(#beamGrad)" opacity="0.75"/>
+  <path d="M700 395 L1560 395" fill="none" stroke="#67e8f9" stroke-width="2" stroke-dasharray="12 10" opacity="0.5"/>
+  <path d="M715 410 L1545 430" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.35"/>
+  <path d="M715 380 L1545 360" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.35"/>
+
+  <!-- Cast Hub satellite -->
+  <g transform="translate(520 396)">
+    <rect x="-165" y="-22" width="115" height="44" rx="4" fill="#0c4a6e" stroke="#38bdf8" stroke-width="2"/>
+    <rect x="-155" y="-16" width="95" height="32" rx="2" fill="#082f49"/>
+    <g stroke="#0ea5e9" stroke-width="1.5" opacity="0.8">
+      <line x1="-150" y1="-8" x2="-70" y2="-8"/><line x1="-150" y1="0" x2="-70" y2="0"/>
+      <line x1="-150" y1="8" x2="-70" y2="8"/>
+    </g>
+    <rect x="50" y="-22" width="115" height="44" rx="4" fill="#0c4a6e" stroke="#38bdf8" stroke-width="2"/>
+    <rect x="60" y="-16" width="95" height="32" rx="2" fill="#082f49"/>
+    <g stroke="#0ea5e9" stroke-width="1.5" opacity="0.8">
+      <line x1="65" y1="-8" x2="145" y2="-8"/><line x1="65" y1="0" x2="145" y2="0"/>
+      <line x1="65" y1="8" x2="145" y2="8"/>
+    </g>
+    <rect x="-55" y="-38" width="110" height="76" rx="10" fill="#1e293b" stroke="#64748b" stroke-width="2"/>
+    <rect x="-48" y="-31" width="96" height="62" rx="6" fill="#334155"/>
+    <g filter="url(#glow)">
+      <circle cx="0" cy="0" r="16" fill="#0b55d9"/>
+      <circle cx="0" cy="-38" r="8" fill="#0b55d9"/>
+      <circle cx="-32" cy="-18" r="10" fill="#0b55d9"/>
+      <circle cx="32" cy="-18" r="10" fill="#0b55d9"/>
+      <circle cx="-22" cy="24" r="10" fill="#0b55d9"/>
+      <circle cx="22" cy="24" r="10" fill="#0b55d9"/>
+      <line x1="0" y1="0" x2="0" y2="-38" stroke="#38bdf8" stroke-width="5"/>
+      <line x1="0" y1="0" x2="-32" y2="-18" stroke="#38bdf8" stroke-width="5"/>
+      <line x1="0" y1="0" x2="32" y2="-18" stroke="#38bdf8" stroke-width="5"/>
+      <line x1="0" y1="0" x2="-22" y2="24" stroke="#38bdf8" stroke-width="5"/>
+      <line x1="0" y1="0" x2="22" y2="24" stroke="#38bdf8" stroke-width="5"/>
+    </g>
+    <text x="0" y="58" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#e0f2fe">Hub</text>
+    <g transform="translate(78 -8) rotate(-8)">
+      <path d="M0 0 Q55 -28 110 0 L105 18 Q55 -8 5 18 Z" fill="#475569" stroke="#94a3b8" stroke-width="2"/>
+      <ellipse cx="58" cy="2" rx="52" ry="20" fill="#64748b" opacity="0.5"/>
+      <rect x="52" y="-6" width="12" height="16" rx="2" fill="#cbd5e1"/>
+      <circle cx="108" cy="4" r="7" fill="#f1f5f9" stroke="#38bdf8" stroke-width="2"/>
+      <line x1="108" y1="4" x2="145" y2="4" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>
+    </g>
+    <circle cx="-70" cy="-30" r="3" fill="#22c55e"/>
+    <circle cx="72" cy="28" r="3" fill="#f59e0b"/>
+  </g>
+
+  <!-- 3D Slicer (target) -->
+  <g transform="translate(1580 396)">
+    <ellipse cx="0" cy="95" rx="95" ry="18" fill="#000" opacity="0.45"/>
+    <g transform="scale(1.15)">
+      <circle cx="0" cy="0" r="72" fill="url(#slicerCore)" stroke="#94a3b8" stroke-width="2"/>
+      <path d="M0 -72 L0 0 L-62 36 Z" fill="#ef4444" opacity="0.85"/>
+      <path d="M0 -72 L0 0 L62 36 Z" fill="#3b82f6" opacity="0.75"/>
+      <path d="M0 0 L-62 36 L62 36 Z" fill="#22c55e" opacity="0.55"/>
+      <g fill="none" stroke="#f97316" stroke-width="3" stroke-linejoin="round">
+        <polygon points="0,-95 82,0 0,95 -82,0"/>
+        <line x1="0" y1="-95" x2="0" y2="95"/>
+        <line x1="-82" y1="0" x2="82" y2="0"/>
+        <line x1="0" y1="-95" x2="-82" y2="0"/>
+        <line x1="0" y1="-95" x2="82" y2="0"/>
+        <line x1="-82" y1="0" x2="0" y2="95"/>
+        <line x1="82" y1="0" x2="0" y2="95"/>
+      </g>
+    </g>
+    <text x="0" y="118" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#e2e8f0">3D Slicer</text>
+  </g>
+
+  <!-- Title -->
+  <text x="991" y="318" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="700" fill="#f8fafc">3D Slicer</text>
+  <text x="991" y="408" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="118" font-weight="700" fill="#38bdf8" filter="url(#textGlow)">Cast Interface</text>
+  <text x="991" y="468" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="700" fill="#7dd3fc" letter-spacing="6">EXTENSION</text>
+  <line x1="760" y1="488" x2="900" y2="488" stroke="#38bdf8" stroke-width="2" opacity="0.8"/>
+  <line x1="1082" y1="488" x2="1222" y2="488" stroke="#38bdf8" stroke-width="2" opacity="0.8"/>
+</svg>
