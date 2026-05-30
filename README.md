@@ -14,6 +14,25 @@ Cast Interface is a 3D Slicer extension focused on desktop integration workflows
 
 ---
 
+
+---
+## Background
+
+Cast is an offshoot of FHIRcast (<https://fhircast.hl7.org/>). FHIRcast is the standard replacing Epic’s file drop interface for integration with PACS and reporting systems. It provides a secure messaging infrastructure using a hub with websocket subscriptions.  The following animations hightlights the permanent low-latency websocket connection of each application and the benefit of central message routing. 
+<figure>
+  <p align="center">
+    <img src="docs/images/imagingstudy-open-flow.svg"
+         alt="ImagingStudy-open event flow: user selects an exam on the worklist, worklist publishes imagingstudy-open to the hub over HTTP POST, hub fans the event over WebSocket to Image Display, Reporting, and EHR, and each app updates its UI."
+         width="100%">
+  </p>
+  <figcaption>The worklist publishes <code>imagingstudy-open</code> on the user topic; the hub fans the same event to every subscribed app (Image Display, Reporting, EHR, and others).</figcaption>
+</figure>
+
+
+Cast is focused on desktop integration of all healthcare applications. It is not restricted to a specific data format or authentication/authorization mechanism.  Cast also has a context sharing strategy and architecture that diverges from FHIRcast (described here).
+
+
+
 ## Extension Features
 Resource servers: Resource servers subscribe to all user topics for dicom/nifti events and send back results to the user throuh the hub. Each server has its own onMessage script. The script handles producing the results from the DICOM files received and publishes a dicom-send event back to the user topic.
 
@@ -21,17 +40,10 @@ Image Display Client: The image display client provide a PACS client type interf
 
 Hub: The hub is the server that distributes the messages and handles the data transfer requests over the websocket connection to each client.
 
----
-## Background
-
-Cast is an offshoot of FHIRcast (<https://fhircast.hl7.org/>). FHIRcast is the standard replacing Epic’s file drop interface for integration with PACS and reporting systems. It provides a secure messaging infrastructure using a hub with websocket subscriptions.
-
-Cast is focused on desktop integration of healthcare applications. It is not restricted to a specific data format or authentication/authorization mechanism.  Cast also has a context sharing strategy and architecture that diverges from FHIRcast (described here).
-
 
 ### Description 
 
-In addition to distributing FHIRcast events, the Cast allows the following:
+In addition to distributing FHIRcast events, Cast allows the following:
 
  - Request data from applications such as worklist context, report content, DICOM instance, DICOM metadata, JPEG/PNG screenshots, scene views, etc.
 
@@ -53,7 +65,6 @@ In addition to distributing FHIRcast events, the Cast allows the following:
      - subscriber.actor
      - target.actor
      - target.product.name
-
 
 
 
@@ -98,7 +109,7 @@ Static overview: [docs/images/binary-file-transfer.svg](docs/images/binary-file-
 
 
 
-### Security Benefits for cloud deplotment of Resource Servers
+### Security Benefits for cloud deployment of Resource Servers
 
 This architecture protects resource servers by eliminating direct inbound internet exposure entirely.
 

@@ -1,0 +1,370 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" width="1200" height="700" role="img" aria-labelledby="isoTitle isoDesc">
+  <title id="isoTitle">ImagingStudy-open event flow</title>
+  <desc id="isoDesc">User selects exam on worklist, publishes imagingstudy-open, hub WebSocket fan-out to Image Display, Reporting, and EHR.</desc>
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#0b1b5f" flood-opacity="0.14"/>
+    </filter>
+    <clipPath id="ctClip">
+      <rect x="500" y="138" width="200" height="150" rx="10"/>
+    </clipPath>
+    <radialGradient id="ctVignette" cx="50%" cy="50%" r="65%">
+      <stop offset="55%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="1"/>
+    </radialGradient>
+    <style>
+      .title { font: 700 32px Arial, Helvetica, sans-serif; fill: #06146b; }
+      .heading { font: 700 24px Arial, Helvetica, sans-serif; fill: #06146b; }
+      .label { font: 700 20px Arial, Helvetica, sans-serif; fill: #06146b; }
+      .small { font: 16px Arial, Helvetica, sans-serif; fill: #06146b; }
+      .panel { fill: #fff; stroke: #cfe0ff; stroke-width: 2; filter: url(#shadow); }
+      .connPost { fill: none; stroke: #cbd5e1; stroke-width: 4; stroke-linecap: round; }
+      .connWs { fill: none; stroke: #2457d6; stroke-width: 4; stroke-linecap: round; opacity: 1; }
+      .packetText { font: 700 10px Arial, Helvetica, sans-serif; fill: #fff; }
+      .packetSub { font: 600 9px Arial, Helvetica, sans-serif; fill: #ecfdf5; }
+      .packetSubWs { font: 600 9px Arial, Helvetica, sans-serif; fill: #dbeafe; }
+      .captionBox { fill: #0f172a; opacity: 0.9; }
+      .captionText { font: 700 13px Arial, Helvetica, sans-serif; fill: #fff; }
+      .wlField { font: 600 9px Arial, Helvetica, sans-serif; fill: #14532d; }
+      .wlValue { font: 9px Arial, Helvetica, sans-serif; fill: #06146b; }
+      .wlUserNoteText { font: 700 16px Arial, Helvetica, sans-serif; fill: #06146b; }
+      .wlUserNoteSub { font: 600 12px Arial, Helvetica, sans-serif; fill: #334155; }
+
+      #wlUserNote { animation: wlUserNote 18s infinite; }
+      @keyframes wlUserNote {
+        0%, 1.99% { opacity: 0; }
+        2%, 34% { opacity: 1; }
+        35%, 100% { opacity: 0; }
+      }
+
+      #worklistShell { animation: worklistShell 18s infinite; }
+      #worklistOrder { opacity: 0; animation: worklistOrder 18s infinite; }
+      #wlSelectHighlight { animation: wlSelectHighlight 18s infinite; }
+      @keyframes worklistShell {
+        0%, 17.99% { opacity: 1; }
+        18%, 100% { opacity: 0; }
+      }
+      @keyframes worklistOrder {
+        0%, 17.99% { opacity: 0; }
+        18%, 100% { opacity: 1; }
+      }
+      @keyframes wlSelectHighlight {
+        0%, 5.99% { opacity: 0; }
+        6%, 16% { opacity: 1; }
+        16.01%, 100% { opacity: 0; }
+      }
+
+      #castHubGraphic { transform-origin: 600px 390px; animation: hubPulse 18s infinite; }
+      @keyframes hubPulse {
+        0%, 25% { transform: scale(1); }
+        27%, 43% { transform: scale(1.06); }
+        45%, 100% { transform: scale(1); }
+      }
+      #step0Caption { animation: step0Caption 18s infinite; }
+      @keyframes step0Caption {
+        0%, 1.99% { opacity: 0; }
+        2%, 17% { opacity: 1; }
+        18%, 100% { opacity: 0; }
+      }
+      #step1Caption { animation: step1Caption 18s infinite; }
+      @keyframes step1Caption {
+        0%, 17.99% { opacity: 0; }
+        19%, 34% { opacity: 1; }
+        35%, 100% { opacity: 0; }
+      }
+      #step2Caption { animation: step2Caption 18s infinite; }
+      @keyframes step2Caption {
+        0%, 34.99% { opacity: 0; }
+        35%, 41% { opacity: 1; }
+        42%, 100% { opacity: 0; }
+      }
+      #step3Caption { animation: step3Caption 18s infinite; }
+      @keyframes step3Caption {
+        0%, 41.99% { opacity: 0; }
+        42%, 88% { opacity: 1; }
+        90%, 100% { opacity: 0; }
+      }
+
+      #linePost { animation: linePost 18s infinite; }
+      @keyframes linePost {
+        0%, 18.99% { stroke: #1f9d55; opacity: 0; }
+        19%, 34% { stroke: #1f9d55; opacity: 1; }
+        35%, 100% { stroke: #1f9d55; opacity: 0; }
+      }
+      .packetPublish { opacity: 0; animation: packetPublish 18s infinite; }
+      @keyframes packetPublish {
+        0%, 18.99% { opacity: 0; transform: translate(600px, 520px); }
+        19% { opacity: 1; transform: translate(600px, 520px); }
+        27% { opacity: 1; transform: translate(600px, 390px); }
+        29%, 100% { opacity: 0; transform: translate(600px, 390px); }
+      }
+      .packetFanoutImg,
+      .packetFanoutReport,
+      .packetFanoutEhr {
+        opacity: 0;
+        animation-duration: 18s;
+        animation-iteration-count: infinite;
+        animation-timing-function: linear;
+      }
+      .packetFanoutImg {
+        animation-name: packetFanoutOpacity, packetFanoutImg;
+      }
+      .packetFanoutReport {
+        animation-name: packetFanoutOpacity, packetFanoutReport;
+      }
+      .packetFanoutEhr {
+        animation-name: packetFanoutOpacity, packetFanoutEhr;
+      }
+      /* Fan-out: depart hub together at 35%, arrive at apps together at 41% */
+      @keyframes packetFanoutOpacity {
+        0%, 34.99% { opacity: 0; }
+        35%, 41% { opacity: 1; }
+        42%, 100% { opacity: 0; }
+      }
+      @keyframes packetFanoutImg {
+        0%, 34.99% { transform: translate(600px, 390px); }
+        35% { transform: translate(600px, 390px); }
+        38% { transform: translate(600px, 301px); }
+        41%, 100% { transform: translate(600px, 212px); }
+      }
+      @keyframes packetFanoutReport {
+        0%, 34.99% { transform: translate(600px, 390px); }
+        35% { transform: translate(600px, 390px); }
+        38% { transform: translate(792px, 396px); }
+        41%, 100% { transform: translate(985px, 402px); }
+      }
+      @keyframes packetFanoutEhr {
+        0%, 34.99% { transform: translate(600px, 390px); }
+        35% { transform: translate(600px, 390px); }
+        38% { transform: translate(407px, 396px); }
+        41%, 100% { transform: translate(215px, 402px); }
+      }
+
+      /* All apps flip on the same frame when packets land (41%) */
+      #ctResult,
+      #reportResult,
+      #ehrChartResult {
+        opacity: 0;
+        animation: appsShowResult 18s infinite;
+      }
+      #appShellImg,
+      #appShellReport,
+      #appShellEhr {
+        animation: appsHideShell 18s infinite;
+      }
+      @keyframes appsHideShell {
+        0%, 40.99% { opacity: 1; }
+        41%, 100% { opacity: 0; }
+      }
+      @keyframes appsShowResult {
+        0%, 40.99% { opacity: 0; }
+        41%, 100% { opacity: 1; }
+      }
+    </style>
+  </defs>
+
+  <rect width="1200" height="700" fill="#ffffff"/>
+  <text x="600" y="52" text-anchor="middle" class="title">ImagingStudy-open event flow</text>
+
+  <g id="step0Caption">
+    <rect class="captionBox" x="200" y="78" width="800" height="44" rx="8"/>
+    <text x="600" y="98" text-anchor="middle" class="captionText">Step 1: User selects an exam from the worklist</text>
+    <text x="600" y="116" text-anchor="middle" class="captionText" font-size="11">Modality worklist row opens the radiology order</text>
+  </g>
+  <g id="step1Caption">
+    <rect class="captionBox" x="220" y="78" width="760" height="44" rx="8"/>
+    <text x="600" y="98" text-anchor="middle" class="captionText">Step 2: Worklist publishes imagingstudy-open (HTTP POST, green)</text>
+    <text x="600" y="116" text-anchor="middle" class="captionText" font-size="11">Event context carries the ImagingStudy manifest</text>
+  </g>
+  <g id="step2Caption">
+    <rect class="captionBox" x="200" y="78" width="800" height="44" rx="8"/>
+    <text x="600" y="98" text-anchor="middle" class="captionText">Step 3: Hub fans out over WebSocket (blue) to every subscriber</text>
+    <text x="600" y="116" text-anchor="middle" class="captionText" font-size="11">Image Display, Reporting, EHR on the same topic</text>
+  </g>
+  <g id="step3Caption">
+    <rect class="captionBox" x="180" y="78" width="840" height="44" rx="8"/>
+    <text x="600" y="98" text-anchor="middle" class="captionText">Step 4: Each application updates its UI from the shared context</text>
+    <text x="600" y="116" text-anchor="middle" class="captionText" font-size="11">CT slice | draft report | patient chart</text>
+  </g>
+
+  <!-- Connector lines (behind panels) -->
+  <path id="lineWsWorklist" class="connWs" d="M600 480 L600 420"/>
+  <path id="linePost" class="connPost" d="M600 480 L600 420"/>
+  <path id="lineWsImg" class="connWs" d="M600 390 L600 212"/>
+  <path id="lineWsReport" class="connWs" d="M600 390 L985 402"/>
+  <path id="lineWsEhr" class="connWs" d="M600 390 L215 402"/>
+
+  <g id="wlUserNote">
+    <rect class="panel" x="268" y="508" width="214" height="118" rx="12"/>
+    <g id="wlUserFigure" transform="translate(288, 528)">
+      <circle cx="26" cy="18" r="15" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/>
+      <path d="M10 42 Q26 34 42 42 L38 78 Q26 86 14 78 Z" fill="#2563eb" stroke="#1d4ed8" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M38 46 L62 58 L58 64 L34 52 Z" fill="#2563eb" stroke="#1d4ed8" stroke-width="1.2" stroke-linejoin="round"/>
+      <circle cx="60" cy="61" r="4" fill="#fde8d8" stroke="#d4a574" stroke-width="1"/>
+      <path d="M18 44 L4 56" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/>
+    </g>
+    <text x="378" y="562" text-anchor="middle" class="wlUserNoteText">User opens</text>
+    <text x="378" y="582" text-anchor="middle" class="wlUserNoteText">from worklist</text>
+    <text x="378" y="602" text-anchor="middle" class="wlUserNoteSub">clinician action</text>
+    <path d="M482 562 L490 562" fill="none" stroke="#64748b" stroke-width="2.5" stroke-linecap="round"/>
+    <polygon points="490,562 483,557 483,567" fill="#64748b"/>
+  </g>
+
+  <!-- Hub (center) -->
+  <g id="castHub">
+    <g id="castHubGraphic">
+      <circle cx="600" cy="390" r="18" fill="#0b55d9"/>
+      <circle cx="600" cy="328" r="9" fill="#0b55d9"/>
+      <circle cx="545" cy="360" r="12" fill="#0b55d9"/>
+      <circle cx="655" cy="360" r="12" fill="#0b55d9"/>
+      <circle cx="555" cy="435" r="12" fill="#0b55d9"/>
+      <circle cx="645" cy="435" r="12" fill="#0b55d9"/>
+      <line x1="600" y1="390" x2="600" y2="328" stroke="#0b55d9" stroke-width="8"/>
+      <line x1="600" y1="390" x2="545" y2="360" stroke="#0b55d9" stroke-width="8"/>
+      <line x1="600" y1="390" x2="655" y2="360" stroke="#0b55d9" stroke-width="8"/>
+      <line x1="600" y1="390" x2="555" y2="435" stroke="#0b55d9" stroke-width="8"/>
+      <line x1="600" y1="390" x2="645" y2="435" stroke="#0b55d9" stroke-width="8"/>
+    </g>
+    <text x="678" y="398" text-anchor="start" class="heading">Hub</text>
+  </g>
+
+  <!-- Worklist (bottom, star spoke) -->
+  <g id="worklistShell">
+    <rect class="panel" x="490" y="480" width="220" height="175" rx="18"/>
+    <rect x="502" y="498" width="196" height="88" rx="8" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="2"/>
+    <rect id="wlSelectHighlight" x="504" y="522" width="192" height="24" rx="4" fill="#dcfce7" stroke="#159447" stroke-width="2"/>
+    <text x="600" y="516" text-anchor="middle" font-family="Arial" font-size="9" font-weight="700" fill="#14532d">Worklist</text>
+    <text x="512" y="538" font-family="Arial" font-size="10" fill="#06146b">CT Chest w/ contrast</text>
+    <text x="688" y="538" text-anchor="end" font-family="Arial" font-size="9" font-weight="700" fill="#b45309">STAT</text>
+    <text x="512" y="554" font-family="Arial" font-size="10" fill="#64748b">MR Brain</text>
+    <text x="512" y="570" font-family="Arial" font-size="10" fill="#64748b">US Abdomen</text>
+    <text x="600" y="600" text-anchor="middle" class="label">Worklist</text>
+    <text x="600" y="624" text-anchor="middle" class="small">Select exam to open</text>
+  </g>
+  <g id="worklistOrder">
+    <rect class="panel" x="490" y="480" width="220" height="175" rx="18"/>
+    <rect x="502" y="494" width="196" height="118" rx="8" fill="#f0fdf4" stroke="#86efac" stroke-width="2"/>
+    <rect x="502" y="494" width="196" height="22" rx="8" fill="#159447"/>
+    <rect x="502" y="508" width="196" height="8" fill="#159447"/>
+    <text x="600" y="509" text-anchor="middle" font-family="Arial" font-size="10" font-weight="700" fill="#fff">Radiology order</text>
+    <text x="512" y="528" class="wlField">ORG ID</text>
+    <text x="688" y="528" text-anchor="end" class="wlValue">RAD-20481</text>
+    <line x1="568" y1="528" x2="682" y2="528" stroke="#bbf7d0" stroke-width="1.5" stroke-linecap="round"/>
+    <text x="512" y="542" class="wlField">Ref physician</text>
+    <text x="688" y="542" text-anchor="end" class="wlValue">Dr. Chen</text>
+    <line x1="592" y1="542" x2="682" y2="542" stroke="#bbf7d0" stroke-width="1.5" stroke-linecap="round"/>
+    <text x="512" y="556" class="wlField">Reason for exam</text>
+    <text x="688" y="556" text-anchor="end" class="wlValue">Chest pain, r/o PE</text>
+    <line x1="608" y1="556" x2="682" y2="556" stroke="#bbf7d0" stroke-width="1.5" stroke-linecap="round"/>
+    <text x="512" y="570" class="wlField">Modality / exam</text>
+    <text x="688" y="570" text-anchor="end" class="wlValue">CT Chest w/ contrast</text>
+    <line x1="608" y1="570" x2="682" y2="570" stroke="#bbf7d0" stroke-width="1.5" stroke-linecap="round"/>
+    <text x="512" y="584" class="wlField">Accession</text>
+    <text x="688" y="584" text-anchor="end" class="wlValue">ACC-2026-88412</text>
+    <line x1="568" y1="584" x2="682" y2="584" stroke="#bbf7d0" stroke-width="1.5" stroke-linecap="round"/>
+    <text x="512" y="598" class="wlField">Priority</text>
+    <text x="688" y="598" text-anchor="end" class="wlValue" font-weight="700" fill="#b45309">STAT</text>
+    <text x="600" y="632" text-anchor="middle" class="label">Worklist</text>
+    <text x="600" y="648" text-anchor="middle" class="small">Ready to open study on topic</text>
+  </g>
+
+  <!-- Image Display (top) -->
+  <g id="appShellImg">
+    <rect class="panel" x="490" y="125" width="220" height="175" rx="18"/>
+    <rect x="565" y="145" width="70" height="58" rx="12" fill="#6528e0"/>
+    <path d="M580 189 L595 171 L607 184 L616 176 L628 189 Z" fill="#fff"/>
+    <circle cx="616" cy="163" r="5" fill="#fff"/>
+    <text x="600" y="231" text-anchor="middle" class="label">Image Display</text>
+    <text x="600" y="257" text-anchor="middle" class="small">Waiting for study...</text>
+  </g>
+  <g id="ctResult">
+    <rect class="panel" x="490" y="125" width="220" height="175" rx="18"/>
+    <rect x="500" y="138" width="200" height="150" rx="10" fill="#0f1115" stroke="#2a3140" stroke-width="2"/>
+    <g clip-path="url(#ctClip)">
+      <rect x="500" y="138" width="200" height="150" fill="#101014"/>
+      <ellipse cx="600" cy="216" rx="78" ry="62" fill="#6f7074"/>
+      <ellipse cx="567" cy="212" rx="28" ry="38" fill="#1b1d22"/>
+      <ellipse cx="633" cy="212" rx="28" ry="38" fill="#1b1d22"/>
+      <ellipse cx="600" cy="226" rx="14" ry="18" fill="#8a8b90"/>
+      <ellipse cx="600" cy="258" rx="10" ry="8" fill="#d8d8dc"/>
+      <path d="M555 180 Q600 162 645 180" fill="none" stroke="#555860" stroke-width="3" opacity="0.7"/>
+      <path d="M547 198 Q600 178 653 198" fill="none" stroke="#555860" stroke-width="3" opacity="0.55"/>
+      <rect x="500" y="138" width="200" height="150" fill="url(#ctVignette)" opacity="0.35"/>
+    </g>
+    <text x="600" y="282" text-anchor="middle" class="small">CT Chest</text>
+    <text x="600" y="298" text-anchor="middle" font-family="Arial" font-size="11" font-weight="700" fill="#6528e0">Image Display</text>
+  </g>
+
+  <!-- Reporting (right) -->
+  <g id="appShellReport">
+    <rect class="panel" x="875" y="315" width="220" height="175" rx="18"/>
+    <rect x="950" y="335" width="70" height="58" rx="12" fill="#f97316"/>
+    <rect x="967" y="369" width="8" height="16" fill="#fff"/>
+    <rect x="981" y="357" width="8" height="28" fill="#fff"/>
+    <rect x="995" y="345" width="8" height="40" fill="#fff"/>
+    <text x="985" y="421" text-anchor="middle" class="label">Reporting</text>
+    <text x="985" y="447" text-anchor="middle" class="small">Waiting for study...</text>
+  </g>
+  <g id="reportResult">
+    <rect class="panel" x="875" y="315" width="220" height="175" rx="18"/>
+    <rect x="892" y="332" width="186" height="132" rx="8" fill="#fffaf5" stroke="#fed7aa" stroke-width="2"/>
+    <rect x="892" y="332" width="186" height="28" rx="8" fill="#f97316"/>
+    <rect x="892" y="348" width="186" height="12" fill="#f97316"/>
+    <text x="985" y="351" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#fff">Draft report</text>
+    <text x="904" y="372" font-family="Arial" font-size="10" fill="#7c2d12">Clinical history</text>
+    <line x1="988" y1="372" x2="1066" y2="372" stroke="#fdba74" stroke-width="2" stroke-linecap="round"/>
+    <text x="904" y="390" font-family="Arial" font-size="10" fill="#7c2d12">Findings</text>
+    <line x1="988" y1="390" x2="1066" y2="390" stroke="#fdba74" stroke-width="2" stroke-linecap="round"/>
+    <text x="904" y="408" font-family="Arial" font-size="10" fill="#7c2d12">Impression</text>
+    <line x1="988" y1="408" x2="1066" y2="408" stroke="#fdba74" stroke-width="2" stroke-linecap="round"/>
+    <text x="985" y="488" text-anchor="middle" font-family="Arial" font-size="11" font-weight="700" fill="#f97316">Reporting</text>
+  </g>
+
+  <!-- EHR (left) -->
+  <g id="appShellEhr">
+    <rect class="panel" x="105" y="315" width="220" height="175" rx="18"/>
+    <rect x="180" y="335" width="70" height="58" rx="12" fill="#0d9488"/>
+    <rect x="195" y="348" width="40" height="48" rx="4" fill="#fff" opacity="0.95"/>
+    <line x1="202" y1="362" x2="228" y2="362" stroke="#0d9488" stroke-width="3" stroke-linecap="round"/>
+    <line x1="202" y1="374" x2="228" y2="374" stroke="#0d9488" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="222" cy="344" r="8" fill="#fff" stroke="#0d9488" stroke-width="2"/>
+    <text x="215" y="421" text-anchor="middle" class="label">EHR</text>
+    <text x="215" y="447" text-anchor="middle" class="small">Waiting for study...</text>
+  </g>
+  <g id="ehrChartResult">
+    <rect class="panel" x="105" y="315" width="220" height="175" rx="18"/>
+    <rect x="122" y="332" width="186" height="132" rx="8" fill="#f0fdfa" stroke="#99f6e4" stroke-width="2"/>
+    <rect x="122" y="332" width="186" height="28" rx="8" fill="#0d9488"/>
+    <rect x="122" y="348" width="186" height="12" fill="#0d9488"/>
+    <text x="215" y="351" text-anchor="middle" font-family="Arial" font-size="11" font-weight="700" fill="#fff">Patient chart</text>
+    <text x="134" y="372" font-family="Arial" font-size="10" fill="#134e4a">Name / MRN</text>
+    <line x1="218" y1="372" x2="296" y2="372" stroke="#5eead4" stroke-width="2" stroke-linecap="round"/>
+    <text x="134" y="390" font-family="Arial" font-size="10" fill="#134e4a">Problem list</text>
+    <line x1="218" y1="390" x2="296" y2="390" stroke="#5eead4" stroke-width="2" stroke-linecap="round"/>
+    <text x="134" y="408" font-family="Arial" font-size="10" fill="#134e4a">Allergies / Meds</text>
+    <line x1="218" y1="408" x2="296" y2="408" stroke="#5eead4" stroke-width="2" stroke-linecap="round"/>
+    <text x="215" y="488" text-anchor="middle" font-family="Arial" font-size="11" font-weight="700" fill="#0d9488">EHR</text>
+  </g>
+
+  <!-- Packets: green POST, blue WebSocket -->
+  <g class="packetPublish">
+    <rect x="-88" y="-18" width="176" height="36" rx="18" fill="#1f9d55"/>
+    <text x="0" y="-3" text-anchor="middle" class="packetSub">HTTP POST</text>
+    <text x="0" y="10" text-anchor="middle" class="packetText">imagingstudy-open</text>
+  </g>
+  <g class="packetFanoutImg">
+    <rect x="-78" y="-14" width="156" height="28" rx="14" fill="#2457d6"/>
+    <text x="0" y="-2" text-anchor="middle" class="packetSubWs">WebSocket</text>
+    <text x="0" y="11" text-anchor="middle" class="packetText">imagingstudy-open</text>
+  </g>
+  <g class="packetFanoutReport">
+    <rect x="-78" y="-14" width="156" height="28" rx="14" fill="#2457d6"/>
+    <text x="0" y="-2" text-anchor="middle" class="packetSubWs">WebSocket</text>
+    <text x="0" y="11" text-anchor="middle" class="packetText">imagingstudy-open</text>
+  </g>
+  <g class="packetFanoutEhr">
+    <rect x="-78" y="-14" width="156" height="28" rx="14" fill="#2457d6"/>
+    <text x="0" y="-2" text-anchor="middle" class="packetSubWs">WebSocket</text>
+    <text x="0" y="11" text-anchor="middle" class="packetText">imagingstudy-open</text>
+  </g>
+</svg>
