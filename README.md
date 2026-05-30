@@ -70,16 +70,31 @@ The image display application has crashed and the user restarts the app without 
 
 
 
-### How does the binary file transfer work?
+### How does binary file transfer work?
 
-Binary file transfer uses a Content-Type: multipart/form-data to the hub.  The hub sends a websocket notification to the event subscribers describing the files received and prvides a short lived URL for their download.
+Cast uses a **notify then download** model: the WebSocket carries JSON and a
+`payloadId` per file; file bytes live in the hub’s short-lived HTTP store until a
+subscriber calls `GET /api/hub/payloads/{payloadId}`.
 
-File names are restricted by an ALLOW list and other measure are described here.
+All binary uploads use **one STOW batch** per publish — `multipart/related` with
+a JSON manifest (`event.context.files[]`) plus one HTTP part per file. That
+covers DICOM slices, NIfTI volumes, and other binary-family events. There is no
+separate single-file `multipart/form-data` path.
 
+Before forwarding the JSON file metadata to the recipients over websocket, the hub adds the short-live payloadId to each file metadata so that they can be downloaded.
+For DICOM files, the DICOM metadata of each file is therefore available before the download.  REcipients can therefore select which file they actually need and download those in the order that they want.  This provides something similar to DICOM association but at file level and with all info available ; not just SOP class and transfer syntaxes.  For example, if a complete study is sent to  Total Segmentator, its script can choose to only down one series of thin slices; saving time and bandwidth.
+
+
+Resource servers (e.g. TotalSegmentator) receive metadata on the socket, then
+`fetch_all_payloads` fills `files[].data` before your `onMessage` script runs.
+
+Full description: [docs/binary-file-transfer.md](docs/binary-file-transfer.md).
 
 <p align="center">
-  <img src="docs/images/binary-file-transfer.svg" alt="Binary file transfer" width="100%">
+  <img src="docs/images/binary-file-transfer-animated.svg" alt="Binary file transfer (animated)" width="100%">
 </p>
+
+Static overview: [docs/images/binary-file-transfer.svg](docs/images/binary-file-transfer.svg).
 
 
 

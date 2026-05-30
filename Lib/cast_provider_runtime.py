@@ -9,10 +9,7 @@ import os
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
-from .cast_client import (
-    _dicom_send_context_items,
-    generate_message_id,
-)
+from .cast_client import generate_message_id
 
 if TYPE_CHECKING:
     from .service_provider_hub import ServiceProviderHubConnection
@@ -83,34 +80,15 @@ def extract_all_dicom_send_payloads(
         return []
 
     context = event.get("context")
-    if isinstance(context, dict) and isinstance(context.get("files"), list):
-        payloads: List[Tuple[str, bytes]] = []
-        for index, entry in enumerate(context["files"]):
-            if not isinstance(entry, dict):
-                continue
-            raw = _dicom_bytes_from_resource(entry)
-            if raw:
-                payloads.append((_file_name_from_stow_entry(entry, index), raw))
-        if payloads:
-            return payloads
-
-    if isinstance(context, dict) and isinstance(context.get("resource"), dict):
-        resource = context["resource"]
-        raw = _dicom_bytes_from_resource(resource)
-        if raw:
-            file_name = context.get("fileName")
-            if isinstance(file_name, str) and file_name.strip():
-                return [(file_name.strip(), raw)]
-            return [(_file_name_from_resource(resource, 0), raw)]
-
+    if not isinstance(context, dict) or not isinstance(context.get("files"), list):
+        return []
     payloads: List[Tuple[str, bytes]] = []
-    for index, item in enumerate(_dicom_send_context_items(event)):
-        resource = item.get("resource")
-        if not isinstance(resource, dict):
+    for index, entry in enumerate(context["files"]):
+        if not isinstance(entry, dict):
             continue
-        raw = _dicom_bytes_from_resource(resource)
+        raw = _dicom_bytes_from_resource(entry)
         if raw:
-            payloads.append((_file_name_from_resource(resource, index), raw))
+            payloads.append((_file_name_from_stow_entry(entry, index), raw))
     return payloads
 
 
@@ -131,14 +109,16 @@ def extract_all_nifti_send_payloads(
     if not isinstance(event, dict) or event.get("hub.event") != "nifti-send":
         return []
 
+    context = event.get("context")
+    if not isinstance(context, dict) or not isinstance(context.get("files"), list):
+        return []
     payloads: List[Tuple[str, bytes]] = []
-    for index, item in enumerate(_dicom_send_context_items(event)):
-        resource = item.get("resource")
-        if not isinstance(resource, dict):
+    for index, entry in enumerate(context["files"]):
+        if not isinstance(entry, dict):
             continue
-        raw = _dicom_bytes_from_resource(resource)
+        raw = _dicom_bytes_from_resource(entry)
         if raw:
-            payloads.append((_nifti_file_name_from_resource(resource, index), raw))
+            payloads.append((_nifti_file_name_from_resource(entry, index), raw))
     return payloads
 
 
@@ -190,16 +170,16 @@ def build_dicom_send_publish_message(
         "event": {
             "hub.topic": topic,
             "hub.event": "dicom-send",
-            "context": [
-                {
-                    "key": "dicom",
-                    "resource": {
-                        "data": raw,
+            "context": {
+                "files": [
+                    {
                         "fileName": file_name,
                         "mimeType": "application/dicom",
-                    },
-                }
-            ],
+                        "byteLength": len(raw),
+                        "data": raw,
+                    }
+                ]
+            },
         },
     }
 
@@ -221,16 +201,16 @@ def build_nifti_send_publish_message(
         "event": {
             "hub.topic": topic,
             "hub.event": "nifti-send",
-            "context": [
-                {
-                    "key": "nifti",
-                    "resource": {
-                        "data": raw,
+            "context": {
+                "files": [
+                    {
                         "fileName": file_name,
                         "mimeType": "application/vnd.unknown.nifti-1",
-                    },
-                }
-            ],
+                        "byteLength": len(raw),
+                        "data": raw,
+                    }
+                ]
+            },
         },
     }
 

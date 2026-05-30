@@ -353,24 +353,13 @@ def _first_pending_payload_slot(
             and entry.get("data") is None
         ):
             return ("files", idx, payload_id.strip())
-    for item in _dicom_send_context_items(event):
-        resource = item.get("resource")
-        if not isinstance(resource, dict):
-            continue
-        payload_id = resource.get("payloadId")
-        if (
-            isinstance(payload_id, str)
-            and payload_id.strip()
-            and resource.get("data") is None
-        ):
-            return ("resource", None, payload_id.strip())
     return None
 
 
 def _list_pending_payload_slots(
     event: Dict[str, Any],
 ) -> List[Tuple[str, Optional[int], str]]:
-    """Every unfetched ``payloadId`` on ``context.files[]`` then ``resource`` slots."""
+    """Every unfetched ``payloadId`` on ``context.files[]``."""
     slots: List[Tuple[str, Optional[int], str]] = []
     for idx, entry in enumerate(_context_files_from_event(event)):
         payload_id = entry.get("payloadId")
@@ -380,18 +369,49 @@ def _list_pending_payload_slots(
             and entry.get("data") is None
         ):
             slots.append(("files", idx, payload_id.strip()))
-    for item in _dicom_send_context_items(event):
-        resource = item.get("resource")
-        if not isinstance(resource, dict):
-            continue
-        payload_id = resource.get("payloadId")
-        if (
-            isinstance(payload_id, str)
-            and payload_id.strip()
-            and resource.get("data") is None
-        ):
-            slots.append(("resource", None, payload_id.strip()))
     return slots
+
+
+def _default_stow_file_name(hub_event: str, index: int) -> str:
+    name = (hub_event or "").strip().lower()
+    if name.startswith("nifti"):
+        return "nifti-send.nii.gz" if index == 0 else f"nifti-send-{index + 1}.nii.gz"
+    return "dicom-send.dcm" if index == 0 else f"dicom-send-{index + 1}.dcm"
+
+
+def _default_stow_mime_type(hub_event: str) -> str:
+    name = (hub_event or "").strip().lower()
+    if name.startswith("nifti"):
+        return "application/octet-stream"
+    return "application/dicom"
+
+
+def coerce_binary_publish_to_stow_files(msg: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert legacy ``context[].resource.data`` publishes to ``context.files[]``."""
+    event = msg.get("event")
+    if not isinstance(event, dict) or not is_cast_binary_event(event.get("hub.event")):
+        return msg
+    if _context_files_from_event(event):
+        return msg
+    hub_event = str(event.get("hub.event") or "")
+    files: List[Dict[str, Any]] = []
+    for index, item in enumerate(_dicom_send_context_items(event)):
+        resource = item.get("resource")
+        if not isinstance(resource, dict) or resource.get("data") is None:
+            continue
+        entry = copy.deepcopy(resource)
+        file_name = entry.get("fileName")
+        if not isinstance(file_name, str) or not file_name.strip():
+            entry["fileName"] = _default_stow_file_name(hub_event, index)
+        mime_type = entry.get("mimeType")
+        if not isinstance(mime_type, str) or not mime_type.strip():
+            entry["mimeType"] = _default_stow_mime_type(hub_event)
+        files.append(entry)
+    if not files:
+        return msg
+    out = copy.deepcopy(msg)
+    out["event"] = {**event, "context": {"files": files}}
+    return out
 
 
 # Cast binary-family events: any ``hub.event`` whose name matches one of these
@@ -415,7 +435,7 @@ def is_cast_binary_event(event_name: Any) -> bool:
 
 
 def cast_payload_id(event: Dict[str, Any]) -> str:
-    """Return the first pending ``payloadId`` on ``context.files[]`` or ``resource``."""
+    """Return the first pending ``payloadId`` on ``context.files[]``."""
     slot = _first_pending_payload_slot(event)
     return slot[2] if slot else ""
 
@@ -450,7 +470,9 @@ def extract_stow_batch_file_bytes(msg: Dict[str, Any]) -> List[bytes]:
     return blobs
 
 
-def normalize_stow_batch_file_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
+def normalize_stow_batch_file_entry(
+    entry: Dict[str, Any], hub_event: str = "", index: int = 0
+) -> Dict[str, Any]:
     if not isinstance(entry, dict):
         raise ValueError("CastClient: STOW batch files[] entries must be objects")
     byte_length: Optional[int] = None
@@ -472,13 +494,13 @@ def normalize_stow_batch_file_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
     normalized["fileName"] = (
         file_name.strip()
         if isinstance(file_name, str) and file_name.strip()
-        else "dicom-send.dcm"
+        else _default_stow_file_name(hub_event, index)
     )
     mime_type = normalized.get("mimeType")
     normalized["mimeType"] = (
         mime_type.strip()
         if isinstance(mime_type, str) and mime_type.strip()
-        else "application/dicom"
+        else _default_stow_mime_type(hub_event)
     )
     normalized.pop("data", None)
     normalized.pop("binaryTransfer", None)
@@ -501,7 +523,11 @@ def normalize_stow_batch_message_metadata_only(msg: Dict[str, Any]) -> Dict[str,
     files = context.get("files")
     if not isinstance(files, list) or not files:
         raise ValueError("CastClient: STOW batch requires non-empty event.context.files[]")
-    normalized_files = [normalize_stow_batch_file_entry(entry) for entry in files]
+    hub_event = str(event.get("hub.event") or "")
+    normalized_files = [
+        normalize_stow_batch_file_entry(entry, hub_event, idx)
+        for idx, entry in enumerate(files)
+    ]
     out = copy.deepcopy(msg)
     out["event"] = {
         **event,
@@ -511,7 +537,7 @@ def normalize_stow_batch_message_metadata_only(msg: Dict[str, Any]) -> Dict[str,
 
 
 def _build_stow_related_body(
-    boundary: str, json_text: str, dicom_blobs: List[bytes]
+    boundary: str, json_text: str, file_parts: List[Tuple[bytes, str]]
 ) -> bytes:
     parts: List[bytes] = []
     parts.append(
@@ -521,41 +547,15 @@ def _build_stow_related_body(
     )
     parts.append(json_text.encode("utf-8"))
     parts.append(b"\r\n")
-    for blob in dicom_blobs:
+    for blob, part_mime in file_parts:
+        mime = (part_mime or "application/octet-stream").strip() or "application/octet-stream"
         parts.append(
-            f"--{boundary}\r\nContent-Type: application/dicom\r\n\r\n".encode(
-                "utf-8"
-            )
+            f"--{boundary}\r\nContent-Type: {mime}\r\n\r\n".encode("utf-8")
         )
         parts.append(blob)
         parts.append(b"\r\n")
     parts.append(f"--{boundary}--\r\n".encode("utf-8"))
     return b"".join(parts)
-
-
-def message_needs_multipart_publish(msg: Dict[str, Any]) -> bool:
-    event = msg.get("event")
-    if not isinstance(event, dict) or not is_cast_binary_event(event.get("hub.event")):
-        return False
-    if _context_files_from_event(event):
-        return False
-    for item in _dicom_send_context_items(event):
-        resource = item.get("resource")
-        if isinstance(resource, dict) and resource.get("data") is not None:
-            return True
-    return False
-
-
-def extract_first_binary_file_bytes(msg: Dict[str, Any]) -> bytes:
-    event = msg.get("event")
-    if not isinstance(event, dict):
-        raise ValueError("CastClient: publish message missing event")
-    for item in _dicom_send_context_items(event):
-        resource = item.get("resource")
-        if not isinstance(resource, dict) or resource.get("data") is None:
-            continue
-        return _read_binary_strict(resource["data"])
-    raise ValueError("CastClient: multipart publish missing resource.data")
 
 
 _HTTP_PAYLOAD_READ_CHUNK_BYTES = 4 * 1024 * 1024
@@ -679,31 +679,31 @@ def _download_http_payload_sync(url: str, bearer_token: str) -> bytes:
 
 
 def dicom_send_byte_length(message: Dict[str, Any]) -> int:
-    """Return DICOM payload size from an assembled dicom-send notification."""
+    """Return total DICOM payload bytes from an assembled dicom-send notification."""
     event = message.get("event") or {}
-    for item in _dicom_send_context_items(event):
-        resource = item.get("resource")
-        if not isinstance(resource, dict):
-            continue
-        byte_length = resource.get("byteLength")
+    total = 0
+    for entry in _context_files_from_event(event):
+        byte_length = entry.get("byteLength")
         if isinstance(byte_length, int) and byte_length >= 0:
-            return byte_length
-        data = resource.get("data")
+            total += byte_length
+            continue
+        data = entry.get("data")
         if isinstance(data, (bytes, bytearray)):
-            return len(data)
-        if isinstance(data, str) and data:
-            return len(data)
-    return 0
+            total += len(data)
+        elif isinstance(data, str) and data:
+            total += len(data)
+    return total
 
 
 def dicom_send_file_name(message: Dict[str, Any]) -> str:
     event = message.get("event") or {}
-    for item in _dicom_send_context_items(event):
-        resource = item.get("resource")
-        if isinstance(resource, dict):
-            name = resource.get("fileName")
-            if isinstance(name, str) and name.strip():
-                return name.strip()
+    files = _context_files_from_event(event)
+    if not files:
+        return "dicom-send.dcm"
+    name = files[0].get("fileName")
+    if isinstance(name, str) and name.strip():
+        suffix = f" (+{len(files) - 1} more)" if len(files) > 1 else ""
+        return f"{name.strip()}{suffix}"
     return "dicom-send.dcm"
 
 
@@ -1339,36 +1339,23 @@ class SlicerCastClient(CastClient):
         if not isinstance(event, dict):
             raise ValueError("CastClient.fetch_payload: missing event object")
         kind, index, _payload_id = slot
-        if kind == "files":
-            context = event.get("context")
-            if not isinstance(context, dict):
-                raise ValueError("CastClient.fetch_payload: missing context.files[]")
-            files = context.get("files")
-            if not isinstance(files, list) or index is None or index >= len(files):
-                raise ValueError("CastClient.fetch_payload: invalid files[] index")
-            entry = files[index]
-            if not isinstance(entry, dict):
-                raise ValueError("CastClient.fetch_payload: invalid files[] entry")
-            entry.pop("binaryTransfer", None)
-            entry.pop("url", None)
-            entry.pop("payloadId", None)
-            entry.pop("expiresAt", None)
-            entry["data"] = data
-            entry["byteLength"] = len(data)
-            return
-        for item in _dicom_send_context_items(event):
-            resource = item.get("resource")
-            if not isinstance(resource, dict):
-                continue
-            resource.pop("binaryTransfer", None)
-            resource.pop("url", None)
-            resource.pop("payloadId", None)
-            resource.pop("expiresAt", None)
-            resource["data"] = data
-            resource["byteLength"] = len(data)
-            item["resource"] = resource
-            return
-        raise ValueError("CastClient.fetch_payload: no resource slot on message")
+        if kind != "files":
+            raise ValueError("CastClient.fetch_payload: expected files[] payload slot")
+        context = event.get("context")
+        if not isinstance(context, dict):
+            raise ValueError("CastClient.fetch_payload: missing context.files[]")
+        files = context.get("files")
+        if not isinstance(files, list) or index is None or index >= len(files):
+            raise ValueError("CastClient.fetch_payload: invalid files[] index")
+        entry = files[index]
+        if not isinstance(entry, dict):
+            raise ValueError("CastClient.fetch_payload: invalid files[] entry")
+        entry.pop("binaryTransfer", None)
+        entry.pop("url", None)
+        entry.pop("payloadId", None)
+        entry.pop("expiresAt", None)
+        entry["data"] = data
+        entry["byteLength"] = len(data)
 
     def _attach_payload_bytes(
         self,
@@ -1383,38 +1370,24 @@ class SlicerCastClient(CastClient):
         if slot is None:
             raise ValueError("CastClient.fetch_payload: no payload slot on message")
         kind, index, _payload_id = slot
-        if kind == "files":
-            context = event.get("context")
-            if not isinstance(context, dict):
-                raise ValueError("CastClient.fetch_payload: missing context.files[]")
-            files = context.get("files")
-            if not isinstance(files, list) or index is None or index >= len(files):
-                raise ValueError("CastClient.fetch_payload: invalid files[] index")
-            entry = dict(files[index])
-            entry.pop("binaryTransfer", None)
-            entry.pop("url", None)
-            entry.pop("payloadId", None)
-            entry.pop("expiresAt", None)
-            entry["data"] = data
-            entry["byteLength"] = len(data)
-            files[index] = entry
-            enriched["event"] = event
-            return enriched
-        for item in _dicom_send_context_items(event):
-            resource = item.get("resource")
-            if not isinstance(resource, dict):
-                continue
-            resource = dict(resource)
-            resource.pop("binaryTransfer", None)
-            resource.pop("url", None)
-            resource.pop("payloadId", None)
-            resource.pop("expiresAt", None)
-            resource["data"] = data
-            resource["byteLength"] = len(data)
-            item["resource"] = resource
-            enriched["event"] = event
-            return enriched
-        raise ValueError("CastClient.fetch_payload: no resource slot on message")
+        if kind != "files":
+            raise ValueError("CastClient.fetch_payload: expected files[] payload slot")
+        context = event.get("context")
+        if not isinstance(context, dict):
+            raise ValueError("CastClient.fetch_payload: missing context.files[]")
+        files = context.get("files")
+        if not isinstance(files, list) or index is None or index >= len(files):
+            raise ValueError("CastClient.fetch_payload: invalid files[] index")
+        entry = dict(files[index])
+        entry.pop("binaryTransfer", None)
+        entry.pop("url", None)
+        entry.pop("payloadId", None)
+        entry.pop("expiresAt", None)
+        entry["data"] = data
+        entry["byteLength"] = len(data)
+        files[index] = entry
+        enriched["event"] = event
+        return enriched
 
     async def fetch_payload(self, cast_message: Dict[str, Any]) -> Dict[str, Any]:
         """App-initiated GET for the next pending ``payloadId``; returns message with ``data``."""
@@ -1717,7 +1690,7 @@ class SlicerCastClient(CastClient):
     async def publish_stow_batch(
         self, cast_message: Dict[str, Any], file_bytes_list: List[bytes]
     ) -> Optional[int]:
-        msg = dict(cast_message)
+        msg = coerce_binary_publish_to_stow_files(dict(cast_message))
         msg["timestamp"] = msg.get("timestamp") or _utc_timestamp()
         msg["id"] = msg.get("id") or generate_message_id(
             self._options.message_id_prefix
@@ -1741,8 +1714,15 @@ class SlicerCastClient(CastClient):
                 msg["target.actor"] = wire_target
 
         msg = normalize_stow_batch_message_metadata_only(msg)
+        event = msg.get("event") or {}
+        files_meta = _context_files_from_event(event)
+        file_parts: List[Tuple[bytes, str]] = []
+        for idx, blob in enumerate(file_bytes_list):
+            entry = files_meta[idx] if idx < len(files_meta) else {}
+            mime = str(entry.get("mimeType") or "application/octet-stream").strip()
+            file_parts.append((blob, mime or "application/octet-stream"))
         boundary = f"cast-stow-{generate_message_id(self._options.message_id_prefix)}"
-        body = _build_stow_related_body(boundary, json.dumps(msg), list(file_bytes_list))
+        body = _build_stow_related_body(boundary, json.dumps(msg), file_parts)
         content_type = (
             f'multipart/related; boundary="{boundary}"; type="application/dicom"'
         )
@@ -1760,78 +1740,6 @@ class SlicerCastClient(CastClient):
                 return response.status
         except Exception as exc:
             LOGGER.debug("publish_stow_batch error: %s", exc)
-            return None
-
-    async def publish_multipart(
-        self, cast_message: Dict[str, Any], file_bytes: bytes
-    ) -> Optional[int]:
-        msg = dict(cast_message)
-        msg["timestamp"] = msg.get("timestamp") or _utc_timestamp()
-        msg["id"] = msg.get("id") or generate_message_id(
-            self._options.message_id_prefix
-        )
-        self._last_published_message_id = msg["id"]
-
-        if msg.get("subscriber.name") is None and self._session_cfg.subscriber_name:
-            msg["subscriber.name"] = self._session_cfg.subscriber_name
-        if msg.get("subscriber.product.name") is None and self._session_cfg.product_name:
-            msg["subscriber.product.name"] = self._session_cfg.product_name
-
-        event = msg.get("event")
-        if isinstance(event, dict) and not event.get("hub.topic"):
-            event["hub.topic"] = self._session_cfg.topic
-
-        if msg.get("target.actor") is None and self._session_cfg.default_target_actor:
-            wire_target = resolve_target_actor_for_wire(
-                self._session_cfg.default_target_actor
-            )
-            if wire_target:
-                msg["target.actor"] = wire_target
-
-        hub_event = (msg.get("event") or {}).get("hub.event")
-        if hub_event == "dicom-send":
-            msg = normalize_dicom_send_message_strict(msg)
-        elif hub_event == "nifti-send":
-            msg = normalize_nifti_send_message_metadata_only(msg)
-        else:
-            raise ValueError(
-                f"CastClient.publish_multipart: unsupported event {hub_event!r}"
-            )
-
-        event = msg.get("event") or {}
-        file_name = dicom_send_file_name(msg)
-        mime_type = "application/dicom"
-        for item in _dicom_send_context_items(event or {}):
-            resource = item.get("resource")
-            if isinstance(resource, dict):
-                mt = resource.get("mimeType")
-                if isinstance(mt, str) and mt.strip():
-                    mime_type = mt.strip()
-                break
-
-        form = aiohttp.FormData()
-        form.add_field(
-            "message",
-            json.dumps(msg),
-            content_type="application/json",
-        )
-        form.add_field(
-            "file",
-            file_bytes,
-            filename=file_name,
-            content_type=mime_type,
-        )
-
-        http = await self._get_http()
-        try:
-            async with http.post(
-                self._hub.hub_endpoint,
-                data=form,
-                headers={"Authorization": f"Bearer {self._token}"},
-            ) as response:
-                return response.status
-        except Exception as exc:
-            LOGGER.debug("publish_multipart error: %s", exc)
             return None
 
     async def publish(self, cast_message: Dict[str, Any]) -> Optional[int]:
@@ -1858,13 +1766,10 @@ class SlicerCastClient(CastClient):
             if wire_target:
                 msg["target.actor"] = wire_target
 
+        msg = coerce_binary_publish_to_stow_files(msg)
         if message_needs_stow_batch_publish(msg):
             file_bytes_list = extract_stow_batch_file_bytes(msg)
             return await self.publish_stow_batch(msg, file_bytes_list)
-
-        if message_needs_multipart_publish(msg):
-            file_bytes = extract_first_binary_file_bytes(msg)
-            return await self.publish_multipart(msg, file_bytes)
 
         http = await self._get_http()
         try:
