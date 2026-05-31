@@ -230,7 +230,7 @@
 
   <!-- Caption during context-request (top-left of CT viewport area) -->
   <g id="contextRequestCaption">
-    <rect x="262" y="118" width="188" height="48" rx="8" fill="#0f172a" opacity="0.88"/>
+    <rect x="262" y="118" width="188" height="48" rx="8" fill="#06146b" opacity="0.88"/>
     <text x="272" y="138" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#ffffff">Image Display asks for</text>
     <text x="272" y="154" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#ffffff">worklist context</text>
   </g>
@@ -257,7 +257,7 @@
 
   <!-- Caption during report-request (top-left of report template viewport area) -->
   <g id="reportRequestCaption">
-    <rect x="752" y="118" width="188" height="48" rx="8" fill="#0f172a" opacity="0.88"/>
+    <rect x="752" y="118" width="188" height="48" rx="8" fill="#06146b" opacity="0.88"/>
     <text x="762" y="138" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#ffffff">Image Display asks for</text>
     <text x="762" y="154" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#ffffff">report content</text>
   </g>

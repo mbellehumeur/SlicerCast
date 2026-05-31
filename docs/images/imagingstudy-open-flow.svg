@@ -23,7 +23,7 @@
       .packetText { font: 700 10px Arial, Helvetica, sans-serif; fill: #fff; }
       .packetSub { font: 600 9px Arial, Helvetica, sans-serif; fill: #ecfdf5; }
       .packetSubWs { font: 600 9px Arial, Helvetica, sans-serif; fill: #dbeafe; }
-      .captionBox { fill: #0f172a; opacity: 0.9; }
+      .captionBox { fill: #06146b; opacity: 0.9; }
       .captionText { font: 700 13px Arial, Helvetica, sans-serif; fill: #fff; }
       .wlField { font: 600 9px Arial, Helvetica, sans-serif; fill: #14532d; }
       .wlValue { font: 9px Arial, Helvetica, sans-serif; fill: #06146b; }

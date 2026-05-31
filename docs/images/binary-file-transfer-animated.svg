@@ -18,7 +18,7 @@
       .packetText { font: 700 11px Arial, Helvetica, sans-serif; fill: #fff; }
       .packetSub { font: 600 9px Arial, Helvetica, sans-serif; fill: #dbeafe; }
       .packetSubPost { font: 600 9px Arial, Helvetica, sans-serif; fill: #ecfdf5; }
-      .captionBox { fill: #0f172a; opacity: 0.9; }
+      .captionBox { fill: #06146b; opacity: 0.9; }
       .captionText { font: 700 13px Arial, Helvetica, sans-serif; fill: #fff; }
 
       #castHubGraphic { transform-origin: 0px 0px; animation: hubPulse 30s infinite; }
