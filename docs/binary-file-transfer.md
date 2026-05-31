@@ -16,7 +16,7 @@ short-lived in-memory file store—not a PACS or long-term archive.
    `event.context.files[]`.
 
 Subscribers never auto-download inside the Cast client library; the application
-(or Slicer `service_provider_hub.py`) calls `fetch_all_payloads` / `fetchAllPayloads`
+(or Slicer `resource_server_hub.py`) calls `fetch_all_payloads` / `fetchAllPayloads`
 before handling the event.
 
 Authoritative hub code: `VolView/server/cast_api/cast_api.py`. Matching clients:
@@ -172,7 +172,7 @@ sequenceDiagram
     Client->>App: enriched message
 ```
 
-**Slicer (`service_provider_hub.py`):** the hub asyncio loop calls
+**Slicer (`resource_server_hub.py`):** the hub asyncio loop calls
 `fetch_all_payloads()` **before** dispatching to the provider `onMessage` script,
 so TotalSegmentator and similar handlers see `context.files[].data` already set.
 
@@ -188,7 +188,7 @@ so TotalSegmentator and similar handlers see `context.files[].data` already set.
 | `CAST_CLIENT_HTTP_PAYLOAD_PROGRESS_INTERVAL` | 25 | Log `Download … completed=N/M …` |
 | Transport | `http.client` + thread pool | Fresh TCP per file; one retry on connection reset |
 
-Use **`127.0.0.1`** in local hub URLs when possible (`CastServiceProviders.py`
+Use **`127.0.0.1`** in local hub URLs when possible (`CastResourceServers.py`
 already does for `VOLVIEW-HUB`).
 
 vtk-js / browser: `fetchAllPayloads()` uses the same concurrency constant and
@@ -263,7 +263,7 @@ VolView → local hub → TotalSegmentator on topic `USER-1`:
 | Browser client | `vtk-js/Sources/IO/Core/CastClient/` |
 | VolView app | `VolView/src/io/cast-client.ts`, `build-dicom-stow-manifest.ts`, `build-nifti-send-context.ts` |
 | OHIF | `Viewers/extensions/cast/src/services/CastService/` |
-| Slicer hub loop | `CastInterface/Lib/service_provider_hub.py` |
+| Slicer hub loop | `CastInterface/Lib/resource_server_hub.py` |
 | Provider scripts | `CastInterface/Lib/cast_provider_runtime.py`, `Resources/scripts/` |
 
 Workspace contract: `ProjectWeek45/AGENTS.md` (Cast wire-shape section).

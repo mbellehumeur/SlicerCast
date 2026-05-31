@@ -12,7 +12,7 @@ from slicer.ScriptedLoadableModule import (
 
 from Lib.CastHub import CastHubWidget
 from Lib.CastImageDisplayClient import CastImageDisplayClientWidget
-from Lib.CastServiceProviders import CastServiceProvidersWidget
+from Lib.CastResourceServers import CastResourceServersWidget
 
 
 class CastInterface(ScriptedLoadableModule):
@@ -24,10 +24,10 @@ class CastInterface(ScriptedLoadableModule):
         self.parent.contributors = ["ProjectWeek45"]
         self.parent.helpText = _(
             """
-            Cast interface for 3D Slicer: Service Providers, Image Display client and Hub.<br><br>
-            Service Providers:
-            Service providers subscribe to all user topics for dicom events and send back results to the user.
-            Each service provider connects with its own product name and onMessage script.
+            Cast interface for 3D Slicer: Resource Servers, Image Display client and Hub.<br><br>
+            Resource Servers:
+            Resource servers subscribe to all user topics for dicom events and send back results to the user.
+            Each resource server connects with its own product name and onMessage script.
             The script handles producing the results from the DICOM files received.
             <br><br>
             Image Display Client:
@@ -64,7 +64,7 @@ QGroupBox::title {
 class CastInterfaceWidget(ScriptedLoadableModuleWidget):
     def __init__(self, parent=None) -> None:
         ScriptedLoadableModuleWidget.__init__(self, parent)
-        self.serviceProvidersWidget = CastServiceProvidersWidget()
+        self.resourceServersWidget = CastResourceServersWidget()
         self.imageDisplayClientWidget = CastImageDisplayClientWidget()
         self.hubWidget = CastHubWidget()
 
@@ -88,11 +88,11 @@ class CastInterfaceWidget(ScriptedLoadableModuleWidget):
         ScriptedLoadableModuleWidget.setup(self)
         self.layout.setSpacing(10)
 
-        serviceProvidersSection, serviceProvidersInner = self._collapsible_group_box(
-            _("Service Providers"), expanded=True
+        resourceServersSection, resourceServersInner = self._collapsible_group_box(
+            _("Resource Servers"), expanded=True
         )
-        self.layout.addWidget(serviceProvidersSection)
-        self.serviceProvidersWidget.setup(serviceProvidersInner)
+        self.layout.addWidget(resourceServersSection)
+        self.resourceServersWidget.setup(resourceServersInner)
 
         clientSection, clientInner = self._collapsible_group_box(
             _("Image Display Client"), expanded=False
@@ -107,16 +107,16 @@ class CastInterfaceWidget(ScriptedLoadableModuleWidget):
         self.layout.addStretch(1)
 
     def cleanup(self) -> None:
-        self.serviceProvidersWidget.cleanup()
+        self.resourceServersWidget.cleanup()
         self.imageDisplayClientWidget.cleanup()
         self.hubWidget.cleanup()
 
     def enter(self) -> None:
-        self.serviceProvidersWidget.enter()
+        self.resourceServersWidget.enter()
         self.imageDisplayClientWidget.enter()
         self.hubWidget.enter()
 
     def exit(self) -> None:
-        self.serviceProvidersWidget.exit()
+        self.resourceServersWidget.exit()
         self.imageDisplayClientWidget.exit()
         self.hubWidget.exit()

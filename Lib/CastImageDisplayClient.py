@@ -12,7 +12,7 @@ import slicer
 from slicer.i18n import tr as _
 
 from .cast_client import generate_subscriber_name
-from .CastServiceProviders import (
+from .CastResourceServers import (
     DEFAULT_HUB_NAME,
     HUBS,
     hub_admin_url_for_name,

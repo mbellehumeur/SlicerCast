@@ -8,8 +8,8 @@ import threading
 from typing import Any, Callable, Dict, Optional
 
 from .cast_client import CastClientOptions, HubConfig, SessionConfig, SlicerCastClient
-from .CastServiceProviders import HUBS, USER_NAME
-from .service_provider_hub import format_connect_failure
+from .CastResourceServers import HUBS, USER_NAME
+from .resource_server_hub import format_connect_failure
 
 LOGGER = logging.getLogger("CastInterface.ImageDisplay")
 LOGGER.setLevel(logging.INFO)

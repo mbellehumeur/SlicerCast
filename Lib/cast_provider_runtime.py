@@ -1,4 +1,4 @@
-"""Helpers for service-provider onMessage scripts (publish, dicom-send payloads)."""
+"""Helpers for resource-server onMessage scripts (publish, dicom-send payloads)."""
 
 from __future__ import annotations
 
@@ -12,17 +12,17 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from .cast_client import generate_message_id
 
 if TYPE_CHECKING:
-    from .service_provider_hub import ServiceProviderHubConnection
+    from .resource_server_hub import ResourceServerHubConnection
 
-LOGGER = logging.getLogger("CastInterface.ProviderRuntime")
+LOGGER = logging.getLogger("CastInterface.ResourceServerRuntime")
 LOGGER.setLevel(logging.INFO)
 
-_connections: Dict[str, "ServiceProviderHubConnection"] = {}
+_connections: Dict[str, "ResourceServerHubConnection"] = {}
 _receive_log: List[Dict[str, Any]] = []
 
 
 def register_connection(
-    product_name: str, connection: "ServiceProviderHubConnection"
+    product_name: str, connection: "ResourceServerHubConnection"
 ) -> None:
     key = (product_name or "").strip()
     if key:
@@ -39,8 +39,8 @@ def get_receive_log() -> List[Dict[str, Any]]:
     return list(_receive_log)
 
 
-def get_active_provider_products() -> List[str]:
-    """Product names of service providers currently connected to the hub."""
+def get_active_resource_server_products() -> List[str]:
+    """Product names of resource servers currently connected to the hub."""
     return list(_connections.keys())
 
 
@@ -222,14 +222,14 @@ def send_cast_request_response(
     data: Dict[str, Any],
     topic: Optional[str] = None,
 ) -> bool:
-    """Send ``<datatype>-response`` on the provider hub WebSocket."""
+    """Send ``<datatype>-response`` on the resource server hub WebSocket."""
     key = (product_name or "").strip()
     connection = _connections.get(key)
     if not connection or not connection._client or not connection._loop:
         LOGGER.warning(
             "send_cast_request_response: no connection for product=%s (active: %s)",
             key,
-            ", ".join(get_active_provider_products()) or "(none)",
+            ", ".join(get_active_resource_server_products()) or "(none)",
         )
         return False
 
@@ -243,14 +243,14 @@ def send_cast_request_response(
 
 
 def publish_dicom_send_file(product_name: str, topic: str, file_path: str) -> bool:
-    """Schedule dicom-send publish on the provider's hub connection thread."""
+    """Schedule dicom-send publish on the resource server's hub connection thread."""
     key = (product_name or "").strip()
     connection = _connections.get(key)
     if not connection:
         LOGGER.warning(
             "publish_dicom_send_file: no connection for product=%s (active: %s)",
             key,
-            ", ".join(get_active_provider_products()) or "(none)",
+            ", ".join(get_active_resource_server_products()) or "(none)",
         )
         return False
 
@@ -265,14 +265,14 @@ def publish_dicom_send_file(product_name: str, topic: str, file_path: str) -> bo
 
 
 def publish_nifti_send_file(product_name: str, topic: str, file_path: str) -> bool:
-    """Schedule nifti-send publish on the provider's hub connection thread."""
+    """Schedule nifti-send publish on the resource server's hub connection thread."""
     key = (product_name or "").strip()
     connection = _connections.get(key)
     if not connection:
         LOGGER.warning(
             "publish_nifti_send_file: no connection for product=%s (active: %s)",
             key,
-            ", ".join(get_active_provider_products()) or "(none)",
+            ", ".join(get_active_resource_server_products()) or "(none)",
         )
         return False
 
