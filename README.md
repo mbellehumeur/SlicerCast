@@ -44,7 +44,7 @@ The hub is the server that distributes the messages and handles the data transfe
 
 ![hub](docs/images/hub-ui.png)
 #### Resource servers: 
-The resource server tab provides a way for other 3D slicer extensions to connect to the hub and provide their resource to the users.  Resource servers subscribe to all user topics for dicom/nifti events and send back results to the user through the hub. For extensions that do not require user interaction like TotalSegmentator, it is quite straightforward to set  up.  
+The resource server tab provides a way for other 3D slicer extensions to connect to the hub and provide their resource to the users.  Resource servers subscribe to all user topics for dicom/nifti events and send back results to the user through the hub. For extensions that do not require user interaction like TotalSegmentator, it is quite straight forward to set  up.  
 ![resource servers](docs/images/ResourceServerFeature.png)
 
 #### Image Display Client: 
@@ -78,7 +78,7 @@ In addition to distributing FHIRcast events, Cast allows the following:
 
 
 
-### How does the cast request work?
+### How does the Cast request work?
 There is value to being able to obtain real-time information from other applications in the workfow.  For example, knowing the "sceneview" status of an Image Display application or the current content of the report editor.  This  is different than what a FHIRcast hub would know since it is relies on getting events to maintain it's context which are not generated for each user action. 
 
 The following animation shows the added resiliency and data exchange that this feature provides.
@@ -119,7 +119,7 @@ Static overview: [docs/images/binary-file-transfer.svg](docs/images/binary-file-
 
 
 
-### Security Benefits for cloud deployment of Resource Servers
+### Security Benefits for cloud deployment of 3D Slicer extensions 
 
 This architecture protects resource servers by eliminating direct inbound internet exposure entirely.
 
@@ -128,7 +128,7 @@ With resourver servers, developers can connect  the code running on their machin
 
 Each resource server establishes only **outbound encrypted connections** to the Cast Hub, which functions exclusively as a  **routing  appliance**. Because no inbound ports need to be opened on hospital or enterprise networks, the resource servers remain protected behind existing firewalls and are never directly reachable from the public internet.
 
-It also simplifies providing resources since the IT department only needs to add a hostname and rules for the hub.  They do not have to change DNS every time a new resource is available for use.  
+It also simplifies providing resources in-house  since the IT department only needs to add a hostname and rules for the hub.  They do not have to touch their networking every time a new resource server is available for use.  They only have to configure a shared key for it in their auth server.
 
 
 For the hub, it provides a significantly reduced attack surface and minimizes operational security risk since it maintains no storage or database. 

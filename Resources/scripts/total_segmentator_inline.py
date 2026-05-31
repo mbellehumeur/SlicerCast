@@ -5,7 +5,7 @@ and no module-level staging lock. Mirrors the simple shape of
 ``aibrain_on_message.py``: ``onMessage`` stages, runs TotalSegmentator
 inline, publishes, and returns.
 
-Why this is safe (cross-references to ``Lib/service_provider_hub.py``):
+Why this is safe (cross-references to ``Lib/resource_server_hub.py``):
 
 - For ``dicom-send`` and ``nifti-send``, ``_dispatch_provider_on_message``
   already invokes the handler via ``asyncio.to_thread`` (one worker thread),
@@ -24,7 +24,7 @@ Behavior differences vs ``total_segmentator.py``:
   skipped (the old code dropped it via ``processing=True``). Messages are
   no longer dropped.
 
-Cast UI (Service Providers): point the script path at this file.
+Cast UI (Resource Servers): point the script path at this file.
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ from typing import Any, Dict, Optional
 from Lib.cast_provider_runtime import (
     extract_all_dicom_send_payloads,
     extract_all_nifti_send_payloads,
-    get_active_provider_products,
+    get_active_resource_server_products,
     publish_dicom_send_file,
     publish_nifti_send_file,
     record_dicom_send_received,
@@ -296,7 +296,7 @@ def _run_segmentation_job_body(
                 output_file,
                 topic,
                 product_name,
-                ", ".join(get_active_provider_products()) or "(none)",
+                ", ".join(get_active_resource_server_products()) or "(none)",
             )
     except Exception as exc:
         LOGGER.exception(

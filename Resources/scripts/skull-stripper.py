@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 from Lib.cast_client import dicom_send_byte_length, dicom_send_file_name
 from Lib.cast_provider_runtime import (
-    get_active_provider_products,
+    get_active_resource_server_products,
     publish_dicom_send_file,
     record_dicom_send_received,
 )
@@ -46,7 +46,7 @@ def onMessage(message: Dict[str, Any], provider: Any) -> None:
     )
 
     product_name = getattr(provider, "product_name", "") or "AIBRAIN"
-    active = get_active_provider_products()
+    active = get_active_resource_server_products()
     if len(active) > 1:
         LOGGER.info(
             "AIBRAIN skipping demo publish; other providers are connected: %s",
