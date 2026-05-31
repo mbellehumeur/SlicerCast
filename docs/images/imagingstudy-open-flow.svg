@@ -40,8 +40,8 @@
       #wlUserOpeningLabels { animation: wlUserOpeningLabels 18s infinite; }
       @keyframes wlUserOpeningFigure {
         0%, 1.99% { opacity: 0; }
-        2%, 41.99% { opacity: 1; }
-        42%, 100% { opacity: 0; }
+        2%, 51.99% { opacity: 1; }
+        52%, 100% { opacity: 0; }
       }
       @keyframes wlUserOpeningLabels {
         0%, 1.99% { opacity: 0; }
@@ -50,8 +50,8 @@
       }
       #wlUserCelebratePose { opacity: 0; animation: wlUserCelebratePose 18s infinite; }
       @keyframes wlUserCelebratePose {
-        0%, 41.99% { opacity: 0; }
-        42%, 96% { opacity: 1; }
+        0%, 51.99% { opacity: 0; }
+        52%, 96% { opacity: 1; }
         96.01%, 100% { opacity: 0; }
       }
 
@@ -75,8 +75,8 @@
       #castHubGraphic { transform-origin: 0px 0px; animation: hubPulse 18s infinite; }
       @keyframes hubPulse {
         0%, 25% { transform: scale(1); }
-        27%, 43% { transform: scale(1.06); }
-        45%, 100% { transform: scale(1); }
+        27%, 50% { transform: scale(1.06); }
+        52%, 100% { transform: scale(1); }
       }
       #hubBroadcastArcs { opacity: 0.4; animation: hubBroadcastArcs 18s infinite; }
       @keyframes hubBroadcastArcs {
@@ -99,13 +99,13 @@
       #step2Caption { animation: step2Caption 18s infinite; }
       @keyframes step2Caption {
         0%, 34.99% { opacity: 0; }
-        35%, 41% { opacity: 1; }
-        42%, 100% { opacity: 0; }
+        35%, 51% { opacity: 1; }
+        52%, 100% { opacity: 0; }
       }
       #step3Caption { animation: step3Caption 18s infinite; }
       @keyframes step3Caption {
-        0%, 41.99% { opacity: 0; }
-        42%, 86% { opacity: 1; }
+        0%, 51.99% { opacity: 0; }
+        52%, 86% { opacity: 1; }
         87%, 100% { opacity: 0; }
       }
 
@@ -139,32 +139,32 @@
       .packetFanoutEhr {
         animation-name: packetFanoutOpacity, packetFanoutEhr;
       }
-      /* Fan-out: depart hub together at 35%, arrive at apps together at 41% */
+      /* Fan-out: depart hub together at 35%, arrive at apps together at 52% */
       @keyframes packetFanoutOpacity {
         0%, 34.99% { opacity: 0; }
-        35%, 41% { opacity: 1; }
-        42%, 100% { opacity: 0; }
+        35%, 51% { opacity: 1; }
+        52%, 100% { opacity: 0; }
       }
       @keyframes packetFanoutImg {
         0%, 34.99% { transform: translate(600px, 390px); }
         35% { transform: translate(600px, 390px); }
-        38% { transform: translate(600px, 301px); }
-        41%, 100% { transform: translate(600px, 212px); }
+        43% { transform: translate(600px, 301px); }
+        52%, 100% { transform: translate(600px, 212px); }
       }
       @keyframes packetFanoutReport {
         0%, 34.99% { transform: translate(600px, 390px); }
         35% { transform: translate(600px, 390px); }
-        38% { transform: translate(792px, 396px); }
-        41%, 100% { transform: translate(985px, 402px); }
+        43% { transform: translate(792px, 396px); }
+        52%, 100% { transform: translate(985px, 402px); }
       }
       @keyframes packetFanoutEhr {
         0%, 34.99% { transform: translate(600px, 390px); }
         35% { transform: translate(600px, 390px); }
-        38% { transform: translate(407px, 396px); }
-        41%, 100% { transform: translate(215px, 402px); }
+        43% { transform: translate(407px, 396px); }
+        52%, 100% { transform: translate(215px, 402px); }
       }
 
-      /* All apps flip on the same frame when packets land (41%) */
+      /* All apps flip on the same frame when packets land (52%) */
       #ctResult,
       #reportResult,
       #ehrChartResult {
@@ -177,12 +177,12 @@
         animation: appsHideShell 18s infinite;
       }
       @keyframes appsHideShell {
-        0%, 40.99% { opacity: 1; }
-        41%, 100% { opacity: 0; }
+        0%, 51.99% { opacity: 1; }
+        52%, 100% { opacity: 0; }
       }
       @keyframes appsShowResult {
-        0%, 40.99% { opacity: 0; }
-        41%, 100% { opacity: 1; }
+        0%, 51.99% { opacity: 0; }
+        52%, 100% { opacity: 1; }
       }
     </style>
   </defs>
@@ -247,7 +247,7 @@
   </g>
 
   <g id="castHub">
-    <text x="700" y="430" text-anchor="start" class="heading">Hub</text>
+    <text x="648" y="368" text-anchor="start" class="heading">Hub</text>
   </g>
 
   <!-- Worklist (bottom, star spoke) -->
@@ -373,9 +373,9 @@
     <g id="castHubGraphic">
       <g transform="rotate(-42)">
         <g id="hubBroadcastArcs" fill="none" stroke="#38bdf8" stroke-linecap="round">
-          <path d="M54 -14 A 18 18 0 0 1 54 14" stroke-width="3"/>
-          <path d="M64 -26 A 30 30 0 0 1 64 26" stroke-width="2.5" opacity="0.8"/>
-          <path d="M74 -40 A 44 44 0 0 1 74 40" stroke-width="2" opacity="0.55"/>
+          <path d="M30 -12 A 14 14 0 0 1 30 12" stroke-width="3"/>
+          <path d="M38 -20 A 22 22 0 0 1 38 20" stroke-width="2.5" opacity="0.8"/>
+          <path d="M46 -28 A 30 30 0 0 1 46 28" stroke-width="2" opacity="0.55"/>
         </g>
         <g id="hubDish">
           <circle cx="0" cy="0" r="20" fill="#e0f2fe" stroke="#1e40af" stroke-width="4"/>

@@ -10,3 +10,8 @@ FHIRcast defines OAuth 2.0 access scopes that correspond directly to FHIRcast ev
 
 This is related to the context management feature.  
 It is not supported in the hub OAuth handling but the client can send them.
+
+The authorization scoping project and desktop integration projects do not have to intefere.
+
+
+Cast is focused on desktop integration and does not require changing how  application implements resource access control.  If the customer has an existing OAuth server that manages user access to event names, the  subscribing applications can send their events to the auth server.  But requiring that this exists before the project start is not in scope of Cast.  

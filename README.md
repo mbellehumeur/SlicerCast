@@ -18,7 +18,7 @@ Cast Interface is a 3D Slicer extension focused on desktop integration workflows
 ---
 ## Background
 
-Cast is an offshoot of FHIRcast (<https://fhircast.hl7.org/>). FHIRcast is the standard replacing Epic’s file drop interface for integration with PACS and reporting systems. It provides a secure messaging infrastructure using a hub with websocket subscriptions.  The following animations hightlights the low-latency and benefit of central message routing. 
+Cast is an offshoot of FHIRcast (<https://fhircast.hl7.org/>). FHIRcast is the standard replacing Epic’s file drop interface for integration with PACS and reporting systems. It provides a secure event messaging infrastructure using a hub with websocket subscriptions.  The following animation shows distribution of a FHIRCast ImagingStudy-open event to all applications over low-latency websocket connections. 
 <figure>
   <p align="center">
     <img src="docs/images/imagingstudy-open-flow.svg"

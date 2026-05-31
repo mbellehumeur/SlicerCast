@@ -18,8 +18,10 @@
       .label { font: 700 20px Arial, Helvetica, sans-serif; fill: #06146b; }
       .small { font: 16px Arial, Helvetica, sans-serif; fill: #06146b; }
       .panel { fill: #fff; stroke: #cfe0ff; stroke-width: 2; filter: url(#shadow); }
+      .connWs { fill: none; stroke: #2457d6; stroke-width: 4; stroke-linecap: round; }
       .packetText { font: 700 11px Arial, Helvetica, sans-serif; fill: #fff; }
       .packetSub { font: 600 9px Arial, Helvetica, sans-serif; fill: #dbeafe; }
+      .packetSubPost { font: 600 9px Arial, Helvetica, sans-serif; fill: #ecfdf5; }
       .launchMsg { font: 700 18px Arial, Helvetica, sans-serif; fill: #06146b; }
 
       #imageDisplay {
@@ -39,13 +41,21 @@
         100% { opacity: 1; }
       }
 
-      #castHubGraphic { transform-origin: 600px 395px; animation: hubPulse 30s infinite; }
+      #castHubGraphic { transform-origin: 0px 0px; animation: hubPulse 30s infinite; }
       @keyframes hubPulse {
         0%, 14% { transform: scale(1); }
         16.4%, 38.4% { transform: scale(1.06); }
         41.7%, 52.2% { transform: scale(1); }
         57.1%, 73.4% { transform: scale(1.06); }
         76.7%, 100% { transform: scale(1); }
+      }
+      #hubBroadcastArcs { opacity: 0.4; animation: hubBroadcastArcs 30s infinite; }
+      @keyframes hubBroadcastArcs {
+        0%, 17.99% { opacity: 0.4; }
+        18%, 39% { opacity: 1; }
+        39.01%, 57.99% { opacity: 0.4; }
+        58%, 76% { opacity: 1; }
+        76.01%, 100% { opacity: 0.4; }
       }
 
       .packetWaiting {
@@ -55,8 +65,8 @@
       @keyframes packetWaiting {
         0%, 9% { opacity: 0; transform: translate(600px, 270px); }
         10% { opacity: 1; transform: translate(600px, 270px); }
-        14% { opacity: 1; transform: translate(600px, 384px); }
-        38.4% { opacity: 1; transform: translate(600px, 384px); }
+        14% { opacity: 1; transform: translate(600px, 390px); }
+        38.4% { opacity: 1; transform: translate(600px, 390px); }
         44.9% { opacity: 1; transform: translate(600px, 270px); }
         48.2% { opacity: 1; transform: translate(600px, 270px); }
         52.2%, 100% { opacity: 0; transform: translate(600px, 270px); }
@@ -67,8 +77,8 @@
         animation: packetFanout 30s infinite;
       }
       @keyframes packetFanout {
-        0%, 18.1% { opacity: 0; transform: translate(555px, 460px); }
-        18.9% { opacity: 1; transform: translate(555px, 460px); }
+        0%, 18.1% { opacity: 0; transform: translate(600px, 390px); }
+        18.9% { opacity: 1; transform: translate(600px, 390px); }
         24.5% { opacity: 1; transform: translate(300px, 460px); }
         27% { opacity: 1; transform: translate(300px, 455px); }
         29.4%, 100% { opacity: 0; transform: translate(300px, 455px); }
@@ -82,8 +92,8 @@
         0%, 29.4% { opacity: 0; transform: translate(300px, 455px); }
         30.3% { opacity: 1; transform: translate(300px, 455px); }
         34.4% { opacity: 1; transform: translate(300px, 460px); }
-        36.8% { opacity: 1; transform: translate(555px, 460px); }
-        39.3%, 100% { opacity: 0; transform: translate(555px, 460px); }
+        36.8% { opacity: 1; transform: translate(600px, 390px); }
+        39.3%, 100% { opacity: 0; transform: translate(600px, 390px); }
       }
 
       #ctResult {
@@ -104,8 +114,8 @@
       @keyframes packetReportPost {
         0%, 52.2% { opacity: 0; transform: translate(600px, 270px); }
         53.9% { opacity: 1; transform: translate(600px, 270px); }
-        57.1% { opacity: 1; transform: translate(600px, 384px); }
-        73.4% { opacity: 1; transform: translate(600px, 384px); }
+        57.1% { opacity: 1; transform: translate(600px, 390px); }
+        73.4% { opacity: 1; transform: translate(600px, 390px); }
         78.3% { opacity: 1; transform: translate(600px, 270px); }
         80.7% { opacity: 1; transform: translate(600px, 270px); }
         83.2%, 100% { opacity: 0; transform: translate(600px, 270px); }
@@ -116,8 +126,8 @@
         animation: packetReportFanout 30s infinite;
       }
       @keyframes packetReportFanout {
-        0%, 58.8% { opacity: 0; transform: translate(645px, 460px); }
-        60.4% { opacity: 1; transform: translate(645px, 460px); }
+        0%, 58.8% { opacity: 0; transform: translate(600px, 390px); }
+        60.4% { opacity: 1; transform: translate(600px, 390px); }
         63.7% { opacity: 1; transform: translate(900px, 460px); }
         65.3% { opacity: 1; transform: translate(900px, 455px); }
         66.9%, 100% { opacity: 0; transform: translate(900px, 455px); }
@@ -131,8 +141,8 @@
         0%, 66.9% { opacity: 0; transform: translate(900px, 455px); }
         68.5% { opacity: 1; transform: translate(900px, 455px); }
         71% { opacity: 1; transform: translate(900px, 460px); }
-        73.4% { opacity: 1; transform: translate(645px, 460px); }
-        75.9%, 100% { opacity: 0; transform: translate(645px, 460px); }
+        73.4% { opacity: 1; transform: translate(600px, 390px); }
+        75.9%, 100% { opacity: 0; transform: translate(600px, 390px); }
       }
 
       #reportResult {
@@ -194,6 +204,11 @@
 
   <rect width="1200" height="700" fill="#ffffff"/>
   <text x="600" y="58" text-anchor="middle" class="title">Request events: how to get the information you need.</text>
+
+  <!-- Connector lines (behind panels) -->
+  <path class="connWs" d="M600 390 L600 270"/>
+  <path class="connWs" d="M600 390 L300 542"/>
+  <path class="connWs" d="M600 390 L900 542"/>
 
   <!-- Image Display launch (no URL parameters) -->
   <g id="imageDisplayLaunch">
@@ -295,26 +310,27 @@
 
   <!-- Cast Hub -->
   <g id="castHub">
+    <text x="648" y="368" text-anchor="start" class="heading">Hub</text>
+  </g>
+  <g transform="translate(600, 390)">
     <g id="castHubGraphic">
-      <circle cx="600" cy="415" r="18" fill="#0b55d9"/>
-      <circle cx="600" cy="353" r="9" fill="#0b55d9"/>
-      <circle cx="545" cy="385" r="12" fill="#0b55d9"/>
-      <circle cx="655" cy="385" r="12" fill="#0b55d9"/>
-      <circle cx="555" cy="460" r="12" fill="#0b55d9"/>
-      <circle cx="645" cy="460" r="12" fill="#0b55d9"/>
-      <line x1="600" y1="415" x2="600" y2="353" stroke="#0b55d9" stroke-width="8"/>
-      <line x1="600" y1="415" x2="545" y2="385" stroke="#0b55d9" stroke-width="8"/>
-      <line x1="600" y1="415" x2="655" y2="385" stroke="#0b55d9" stroke-width="8"/>
-      <line x1="600" y1="415" x2="555" y2="460" stroke="#0b55d9" stroke-width="8"/>
-      <line x1="600" y1="415" x2="645" y2="460" stroke="#0b55d9" stroke-width="8"/>
+      <g transform="rotate(-42)">
+        <g id="hubBroadcastArcs" fill="none" stroke="#38bdf8" stroke-linecap="round">
+          <path d="M30 -12 A 14 14 0 0 1 30 12" stroke-width="3"/>
+          <path d="M38 -20 A 22 22 0 0 1 38 20" stroke-width="2.5" opacity="0.8"/>
+          <path d="M46 -28 A 30 30 0 0 1 46 28" stroke-width="2" opacity="0.55"/>
+        </g>
+        <g id="hubDish">
+          <circle cx="0" cy="0" r="20" fill="#e0f2fe" stroke="#1e40af" stroke-width="4"/>
+        </g>
+      </g>
     </g>
-    <text x="600" y="505" text-anchor="middle" class="heading">Cast Hub</text>
   </g>
 
   <!-- HTTP POST packet: Image Display → Hub (waits) → Image Display -->
   <g class="packetWaiting">
-    <rect x="-78" y="-18" width="156" height="36" rx="18" fill="#2457d6"/>
-    <text x="0" y="-3" text-anchor="middle" class="packetSub">HTTP POST</text>
+    <rect x="-78" y="-18" width="156" height="36" rx="18" fill="#1f9d55"/>
+    <text x="0" y="-3" text-anchor="middle" class="packetSubPost">HTTP POST</text>
     <text x="0" y="10" text-anchor="middle" class="packetText">context-request</text>
   </g>
 
@@ -326,14 +342,14 @@
 
   <!-- Response packet: Worklist → Hub -->
   <g class="packetResponse">
-    <rect x="-72" y="-14" width="144" height="28" rx="14" fill="#1f9d55"/>
+    <rect x="-72" y="-14" width="144" height="28" rx="14" fill="#2457d6"/>
     <text x="0" y="5" text-anchor="middle" class="packetText">context-response</text>
   </g>
 
   <!-- HTTP POST packet: Image Display → Hub (report-request) -->
   <g class="packetReportPost">
-    <rect x="-78" y="-18" width="156" height="36" rx="18" fill="#2457d6"/>
-    <text x="0" y="-3" text-anchor="middle" class="packetSub">HTTP POST</text>
+    <rect x="-78" y="-18" width="156" height="36" rx="18" fill="#1f9d55"/>
+    <text x="0" y="-3" text-anchor="middle" class="packetSubPost">HTTP POST</text>
     <text x="0" y="10" text-anchor="middle" class="packetText">report-request</text>
   </g>
 
@@ -345,7 +361,7 @@
 
   <!-- Response packet: Reporting → Hub -->
   <g class="packetReportResponse">
-    <rect x="-72" y="-14" width="144" height="28" rx="14" fill="#1f9d55"/>
+    <rect x="-72" y="-14" width="144" height="28" rx="14" fill="#2457d6"/>
     <text x="0" y="5" text-anchor="middle" class="packetText">report-response</text>
   </g>
 
