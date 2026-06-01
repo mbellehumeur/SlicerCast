@@ -50,10 +50,10 @@ The resource server tab provides a way for other 3D slicer extensions to connect
 ![resource servers](docs/images/ResourceServerFeature.png)
 
 
-This youtube video shows VolView using the ToalSegmentator extension through the hub with the "Resource Server" setup. The video shows the binary transfer to 3D slicer, pauses during the segmentation calculation and restarts just before the setgmentation is sent to VolView.
+This video shows VolView using the TotalSegmentator extension with the "Resource Server" setup. The video shows the binary transfer to 3D Slicer, pauses during the segmentation calculation and restarts just before the segmentation is sent to VolView.
 
 
-[![Watch the video](https://img.youtube.com/vi/pHp5QpeH1JEv/0.jpg)](https://www.youtube.com/watch?v=pHp5QpeH1JEv)
+[![Watch the video](https://img.youtube.com/vi/pHp5QpeH1JE/0.jpg)](https://www.youtube.com/watch?v=pHp5QpeH1JEv)
 
 
 
