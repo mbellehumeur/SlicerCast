@@ -30,7 +30,7 @@ Cast is an offshoot of FHIRcast (<https://fhircast.hl7.org/>). FHIRcast is the s
 
 
 
-Cast is focused on desktop integration of all healthcare applications. It is not restricted to a specific data format or authentication/authorization mechanism.  Cast also has a context sharing strategy and architecture that diverges from FHIRcast (described here).
+Cast is focused on desktop integration of all healthcare applications. It is not restricted to a specific data format and does not mandate the development of authorization scoping features.  Cast also has a context sharing strategy and hub architecture that diverges from FHIRcast (described here).
 
 
 
@@ -50,10 +50,12 @@ The resource server tab provides a way for other 3D slicer extensions to connect
 ![resource servers](docs/images/ResourceServerFeature.png)
 
 
-This video shows VolView using the TotalSegmentator extension with the "Resource Server" setup. The video shows the binary transfer to 3D Slicer, pauses during the segmentation calculation and restarts just before the segmentation is sent to VolView.
+This video shows VolView using the TotalSegmentator extension with the "Resource Server" setup. The video shows the binary transfer through the hub to 3D Slicer, pauses during the segmentation calculation and restarts just before the segmentation is sent to VolView.
 
 
-[![Watch the video](https://img.youtube.com/vi/pHp5QpeH1JE/0.jpg)](https://www.youtube.com/watch?v=pHp5QpeH1JEv)
+<a href="https://www.youtube.com/watch?v=pHp5QpeH1JE">
+  <img src="docs/images/video_thumbnail_resourceserver.png" alt="Resource server" width="900">
+</a>
 
 
 
@@ -94,6 +96,9 @@ In addition to distributing FHIRcast events, Cast allows the following:
 ### How does the Cast request work?
 There is value to being able to obtain real-time information from other applications in the workfow.  For example, knowing the "sceneview" status of an Image Display application or the current content of the report editor.  This  is different than what a FHIRcast hub would know since it is relies on getting events to maintain it's context which are not generated for each user action. 
 
+
+The cast request is technically a POST to the hub same as a normal event publish.  The only difference for the client is that the hub does not immediately respond with status code OK but forwards the request through the websocket connections to the relevant subscribers, collates their responses and sends the information back to the client in the POST response.
+
 The following animation shows the added resiliency and data exchange that this feature provides.
 
 *Animation description:  The user is reviewing a report on his tablet and walks over to the workstation to view the images.    The application is launched without context.  The application send a request event to find which study to load from the worklist client and then queries the reporting client to get the measurements in the template.  The measurements are used to populate annotation labeling drop-down in the image display tools.*
@@ -107,15 +112,15 @@ The following animation shows the added resiliency and data exchange that this f
 ### How does binary file transfer work?
 
 Cast uses a **notify then download** model: the WebSocket carries JSON and a
-`payloadId` per file; file bytes live in the hub’s short-lived HTTP store until a
-subscriber calls `GET /api/hub/payloads/{payloadId}`.
+`payloadId` per file; file bytes live in the hub’s short-lived HTTP store and 
+subscribers call `GET /api/hub/payloads/{payloadId}` to get the files.
 
 All binary uploads use **one STOW batch** per publish — `multipart/related` with
 a JSON manifest (`event.context.files[]`) plus one HTTP part per file. That
 covers DICOM slices, NIfTI volumes, and other binary-family events. 
 
 Before forwarding the JSON file metadata to the recipients over websocket, the hub adds the short-live payloadId to each file metadata so that they can be downloaded.
-For DICOM files, the DICOM metadata of each file is therefore available before the download.  Recipients can therefore select which file they actually need and download those in the order that they want.  This provides something similar to DICOM association but at file level and with all info available ; not just SOP class and transfer syntaxes.  For example, if a complete study is sent to  Total Segmentator, its script can choose to only down one series of thin slices; saving time and bandwidth.
+For DICOM files, the DICOM metadata of each file is therefore available before the download.  Recipients can select which file they actually need and download those in the order they want.  This provides something similar to DICOM association but at file level and with all info availabl instead of only SOP class UID and transfer syntaxes.  For example, if a complete study is sent to  Total Segmentator, the handler script can choose to only down one series of thin slices; saving time and bandwidth.
 
 
 Resource servers (e.g. TotalSegmentator) receive metadata on the socket, then
