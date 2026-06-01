@@ -44,11 +44,23 @@ The hub is the server that distributes the messages and handles the data transfe
 
 ![hub](docs/images/hub-ui.png)
 #### Resource servers: 
-The resource server tab provides a way for other 3D slicer extensions to connect to the hub and provide their resource to the users.  Resource servers subscribe to all user topics for dicom/nifti events and send back results to the user through the hub. For extensions that do not require user interaction like TotalSegmentator, it is quite straight forward to set  up.  
+The resource server tab provides a way for other 3D slicer extensions to connect to the hub and provide their resource to the users.  Resource servers subscribe to all user topics for dicom/nifti events and send back results to the user through the hub. Developers can setup a hub in the cloud and connect the extension running on their local machine to the cloud.  The instance in their dev environment is therefore available to their test parters in the cloud without having to deploy their code.
+
+
 ![resource servers](docs/images/ResourceServerFeature.png)
+
+
+This youtube video shows VolView using the ToalSegmentator extension through the hub with the "Resource Server" setup. The video shows the binary transfer to 3D slicer, pauses during the segmentation calculation and restarts just before the setgmentation is sent to VolView.
+
+
+[![Watch the video](https://img.youtube.com/vi/pHp5QpeH1JEv/0.jpg)](https://www.youtube.com/watch?v=pHp5QpeH1JEv)
+
+
 
 #### Image Display Client: 
 The image display client provide a PACS client type interface to the 3D slicer viewer. Supported events should be ImagingStudy-open, Imaging-Study-close, dicom-send and request for sceneview.
+
+
 ![image display client](docs/images/ImageDisplayClient.png)
 
 ### Cast Description 
@@ -63,7 +75,8 @@ In addition to distributing FHIRcast events, Cast allows the following:
 
  - Group topics for multi-user workflows, such as tumor boards or interventional procedures.
 
- - Support for IHE roles.
+
+ - Use [IHE actor naming](# "ID — Image Display; EC — Evidence Creator; WORKLIST_CLIENT,ect") for advanced message routing.
 
  - Support three additional subscription data: 
      - subscriber.product.name, 
@@ -99,11 +112,10 @@ subscriber calls `GET /api/hub/payloads/{payloadId}`.
 
 All binary uploads use **one STOW batch** per publish — `multipart/related` with
 a JSON manifest (`event.context.files[]`) plus one HTTP part per file. That
-covers DICOM slices, NIfTI volumes, and other binary-family events. There is no
-separate single-file `multipart/form-data` path.
+covers DICOM slices, NIfTI volumes, and other binary-family events. 
 
 Before forwarding the JSON file metadata to the recipients over websocket, the hub adds the short-live payloadId to each file metadata so that they can be downloaded.
-For DICOM files, the DICOM metadata of each file is therefore available before the download.  REcipients can therefore select which file they actually need and download those in the order that they want.  This provides something similar to DICOM association but at file level and with all info available ; not just SOP class and transfer syntaxes.  For example, if a complete study is sent to  Total Segmentator, its script can choose to only down one series of thin slices; saving time and bandwidth.
+For DICOM files, the DICOM metadata of each file is therefore available before the download.  Recipients can therefore select which file they actually need and download those in the order that they want.  This provides something similar to DICOM association but at file level and with all info available ; not just SOP class and transfer syntaxes.  For example, if a complete study is sent to  Total Segmentator, its script can choose to only down one series of thin slices; saving time and bandwidth.
 
 
 Resource servers (e.g. TotalSegmentator) receive metadata on the socket, then
@@ -115,7 +127,44 @@ Full description: [docs/binary-file-transfer.md](docs/binary-file-transfer.md).
   <img src="docs/images/binary-file-transfer-animated.svg" alt="Binary file transfer (animated)" width="100%">
 </p>
 
-Static overview: [docs/images/binary-file-transfer.svg](docs/images/binary-file-transfer.svg).
+#### Binary transfer filename policy
+
+The hub enforces an **allowlist** on `resource.fileName` and filters out double extensions when it accepts **binary payload bytes**.
+
+
+##### Default allowed suffixes
+
+Longest match wins (so `study.nii.gz` uses `.nii.gz`, not `.gz`).
+
+| Imaging | Archives / compression |
+|---------|-------------------------|
+| `.dcm`, `.dicom`, `.dic` | `.zip` |
+| `.nii`, `.nii.gz`, `.nrrd` | `.tar`, `.tar.gz`, `.gz` |
+| `.png`, `.jpg`, `.jpeg`, `.tif`, `.tiff`, `.bmp` | |
+
+##### Double extensions
+
+After the outer allowlisted suffix is matched, any **earlier** dotted segment
+must not be a dangerous type (executables, scripts, installers, etc.).
+
+Examples:
+
+| Filename | Result |
+|----------|--------|
+| `patient.dcm` | Allowed |
+| `volume.nii.gz` | Allowed |
+| `bundle.tar.gz` | Allowed |
+| `study.dcm.exe` | Rejected (`double_extension`) |
+| `malware.exe.dcm` | Rejected |
+| `../etc/passwd.dcm` | Rejected (`invalid_file_name`) |
+
+##### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CAST_HUB_FILENAME_POLICY` | on | Set to `off` to disable checks (dev only). |
+| `CAST_HUB_ALLOWED_EXTENSIONS` | (see table) | Comma-separated list, e.g. `.dcm,.nii.gz,.zip` |
+
 
 
 
