@@ -17,6 +17,7 @@ from .CastResourceServers import (
     HUBS,
     hub_admin_url_for_name,
     MAIN_QUEUE_TIMER_MS,
+    normalize_hub_name,
 )
 from .image_display_client_hub import (
     DISPLAY_PRODUCT_NAME,
@@ -104,7 +105,9 @@ class CastImageDisplayClientWidget:
         self.hubComboBox = qt.QComboBox()
         for hub_name in sorted(HUBS.keys()):
             self.hubComboBox.addItem(hub_name)
-        saved_hub = self._load_setting(_SETTINGS_KEY_HUB, DEFAULT_HUB_NAME)
+        saved_hub = normalize_hub_name(
+            self._load_setting(_SETTINGS_KEY_HUB, DEFAULT_HUB_NAME)
+        )
         hub_index = self.hubComboBox.findText(saved_hub)
         if hub_index >= 0:
             self.hubComboBox.setCurrentIndex(hub_index)

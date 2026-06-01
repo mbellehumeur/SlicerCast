@@ -25,7 +25,12 @@ LOGGER.setLevel(logging.INFO)
 
 # --- Hub config (align with Viewers/platform/app/public/config/cast.js) ---
 
-DEFAULT_HUB_NAME = "VOLVIEW-HUB"
+DEFAULT_HUB_NAME = "SLICER-HUB"
+
+_HUB_NAME_ALIASES = {
+    "VOLVIEW-HUB": "SLICER-HUB",
+    "VOLVIEW-HUB-CLOUD": "SLICER-HUB-CLOUD",
+}
 
 HUBS: Dict[str, Dict[str, Any]] = {
     "SLICER-HUB-CLOUD": {
@@ -44,23 +49,18 @@ HUBS: Dict[str, Dict[str, Any]] = {
         "client_secret": "0c931e4163c1bc984b5266735dc652a2f1e3e6e8d8cfe5b0855f433cc8ff018f",
         "lease": 999,
     },
-    "VOLVIEW-HUB": {
-        "hub_endpoint": "http://127.0.0.1:4014/api/hub",
-        "authorization_endpoint": "http://127.0.0.1:4014/oauth/authorize",
-        "token_endpoint": "http://127.0.0.1:4014/oauth/token",
-        "client_id": "130c3d9c-4157-4dd1-aa1d-slicer",
-        "client_secret": "0c931e4163c1bc984b5266735dc652a2f1e3e6e8d8cfe5b0855f433cc8ff018f",
-        "lease": 999,
-    },
-    "VOLVIEW-HUB-CLOUD": {
-        "hub_endpoint": "https://volview-server-with-hub-g2d9hcc5esahgxe8.westeurope-01.azurewebsites.net/api/hub",
-        "authorization_endpoint": "https://volview-server-with-hub-g2d9hcc5esahgxe8.westeurope-01.azurewebsites.net/oauth/authorize",
-        "token_endpoint": "https://volview-server-with-hub-g2d9hcc5esahgxe8.westeurope-01.azurewebsites.net/oauth/token",
-        "client_id": "130c3d9c-4157-4dd1-aa1d-slicer",
-        "client_secret": "0c931e4163c1bc984b5266735dc652a2f1e3e6e8d8cfe5b0855f433cc8ff018f",
-        "lease": 999,
-    },
 }
+
+
+def normalize_hub_name(name: str) -> str:
+    """Map removed presets and invalid values to a configured Slicer hub."""
+    key = str(name or "").strip()
+    if not key:
+        return DEFAULT_HUB_NAME
+    key = _HUB_NAME_ALIASES.get(key, key)
+    if key in HUBS:
+        return key
+    return DEFAULT_HUB_NAME
 
 TOPIC = "*"
 DEFAULT_PRODUCT_NAME = "AIBRAIN"
@@ -155,7 +155,7 @@ EMPTY_FHIRCAST_CONTEXT = {"context.type": "", "context": []}
 
 def _config_from_dict(data: Dict[str, Any]) -> ResourceServerConfig:
     return ResourceServerConfig(
-        hub_name=str(data.get("hub_name") or DEFAULT_HUB_NAME),
+        hub_name=normalize_hub_name(str(data.get("hub_name") or DEFAULT_HUB_NAME)),
         product_name=str(data.get("product_name") or DEFAULT_PRODUCT_NAME),
         product_version=str(data.get("product_version") or DEFAULT_PRODUCT_VERSION),
         description=str(data.get("description") or DEFAULT_DESCRIPTION),
@@ -208,7 +208,9 @@ def hub_admin_url_for_name(hub_name: str) -> Optional[str]:
         return None
     hub_base = hub_endpoint if hub_endpoint.endswith("/") else f"{hub_endpoint}/"
     admin_path = (
-        "admin?theme=3dslicer" if hub_name == "SLICER-HUB" else "admin"
+        "admin?theme=3dslicer"
+        if hub_name in ("SLICER-HUB", "SLICER-HUB-CLOUD")
+        else "admin"
     )
     return urljoin(hub_base, admin_path)
 
@@ -446,7 +448,9 @@ class ResourceServerRow:
         self.hubComboBox = qt.QComboBox()
         for hub_name in sorted(HUBS.keys()):
             self.hubComboBox.addItem(hub_name)
-        hub_index = self.hubComboBox.findText(cfg.hub_name or DEFAULT_HUB_NAME)
+        hub_index = self.hubComboBox.findText(
+            normalize_hub_name(cfg.hub_name or DEFAULT_HUB_NAME)
+        )
         if hub_index >= 0:
             self.hubComboBox.setCurrentIndex(hub_index)
         hub_metrics = qt.QFontMetrics(self.hubComboBox.font)

@@ -30,7 +30,7 @@ Cast is an offshoot of FHIRcast (<https://fhircast.hl7.org/>). FHIRcast is the s
 
 
 
-Cast is focused on desktop integration of all healthcare applications. It is not restricted to a specific data format and does not mandate the development of authorization scoping features.  Cast also has a context sharing strategy and hub architecture that diverges from FHIRcast (described here).
+Cast is focused on desktop integration of all healthcare applications. It is not restricted to a specific data format and does not mandate the development of authorization scoping features.  Cast also has a context sharing strategy and hub architecture that diverges from FHIRcast (see non-conformance statement here).
 
 
 
@@ -43,6 +43,10 @@ The extension features a hub and two cast interfaces:  one for connecting existi
 The hub is the server that distributes the messages and handles the data transfer requests over the websocket connection to each client.
 
 ![hub](docs/images/hub-ui.png)
+
+![hub portal](docs/images/hub-admin.png)
+
+
 #### Resource servers: 
 The resource server tab provides a way for other 3D slicer extensions to connect to the hub and provide their resource to the users.  Resource servers subscribe to all user topics for dicom/nifti events and send back results to the user through the hub. Developers can setup a hub in the cloud and connect the extension running on their local machine to the cloud.  The instance in their dev environment is therefore available to their test parters in the cloud without having to deploy their code.
 
