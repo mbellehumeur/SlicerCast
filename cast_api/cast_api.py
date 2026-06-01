@@ -84,6 +84,7 @@ from cast_filename_policy import (
     FilenamePolicyError,
     enforce_transfer_filenames_for_notification,
 )
+from hub_metrics import collect_hub_metrics
 
 # Default cast-request fan-out timeout (seconds). Was 5s; bumped because
 # multiple subscribers may now respond to the same request.
@@ -1352,6 +1353,12 @@ async def get_conference_client():
 async def get_hub_status():
     """Get hub status page showing all users and endpoints"""
     return _serve_html_page("admin.html")
+
+
+@app.get("/api/hub/admin/metrics")
+async def get_admin_metrics():
+    """Lightweight process metrics for admin sparkline charts."""
+    return collect_hub_metrics(cast_hub, _http_payload_store)
 
 
 @app.get("/api/hub/admin/snapshot")

@@ -267,13 +267,27 @@
             gap: 10px;
             position: relative;
         }
-        .header-actions {
-            position: absolute;
-            top: 0;
-            right: 0;
+        h1.page-header {
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 12px;
+            padding-bottom: 4px;
+        }
+        .header-brand {
             display: flex;
-            gap: 10px;
             align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+            min-width: 0;
+        }
+        .header-actions {
+            position: relative;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-left: auto;
+            flex-wrap: wrap;
+            justify-content: flex-end;
         }
         .header-actions > button {
             transition: background-color 0.2s, border-color 0.2s;
@@ -437,6 +451,65 @@
             font-weight: bold;
             color: var(--text-primary);
             margin-left: 15px;
+        }
+        .metrics-row {
+            display: flex;
+            gap: 8px;
+            margin: 0;
+            flex-wrap: nowrap;
+            align-items: center;
+        }
+        .header-actions .metrics-row {
+            margin-right: 4px;
+        }
+        .metric-card {
+            background: var(--bg-muted);
+            padding: 6px 8px;
+            border-radius: 6px;
+            border-left: 3px solid var(--accent);
+            box-shadow: var(--shadow-card);
+            flex: 0 0 auto;
+            min-width: 0;
+        }
+        .metric-card-body {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }
+        .metric-card-text {
+            flex: 1;
+            min-width: 0;
+        }
+        .metric-card h3 {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1.15;
+        }
+        .metric-card .metric-value {
+            font-size: 13px;
+            font-weight: bold;
+            color: var(--text-primary);
+            white-space: nowrap;
+            line-height: 1.15;
+        }
+        .metric-card .metric-sub {
+            font-size: 9px;
+            color: var(--text-muted);
+            margin-top: 1px;
+            line-height: 1.1;
+            max-width: 72px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .metric-card canvas {
+            display: block;
+            width: 120px;
+            height: 24px;
+            flex-shrink: 0;
         }
         table {
             width: 100%;
@@ -848,11 +921,44 @@
 </head>
 <body>
     <div class="container">
-        <h1>
-            <img class="header-logo-volview" src="/static/images/volview-logo.svg" alt="VolView">
-            <img class="header-logo-slicer" src="/static/images/3DSlicer-DesktopIcon.png" alt="3D Slicer">
-            <span class="header-title">3D Slicer Cast Hub</span>
+        <h1 class="page-header">
+            <div class="header-brand">
+                <img class="header-logo-volview" src="/static/images/volview-logo.svg" alt="VolView">
+                <img class="header-logo-slicer" src="/static/images/3DSlicer-DesktopIcon.png" alt="3D Slicer">
+                <span class="header-title">3D Slicer Cast Hub</span>
+            </div>
             <div class="header-actions">
+                <div class="metrics-row">
+                    <div class="metric-card">
+                        <div class="metric-card-body">
+                            <div class="metric-card-text">
+                                <h3>Memory</h3>
+                                <span class="metric-value" id="metricMemoryValue">—</span>
+                                <div class="metric-sub" id="metricMemorySub"></div>
+                            </div>
+                            <canvas id="metricMemoryChart" width="120" height="24" aria-hidden="true"></canvas>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card-body">
+                            <div class="metric-card-text">
+                                <h3>CPU</h3>
+                                <span class="metric-value" id="metricCpuValue">—</span>
+                            </div>
+                            <canvas id="metricCpuChart" width="120" height="24" aria-hidden="true"></canvas>
+                        </div>
+                    </div>
+                    <div class="metric-card" id="metricSocketsCard"
+                         title="Active Cast hub WebSocket connections">
+                        <div class="metric-card-body">
+                            <div class="metric-card-text">
+                                <h3>Sockets</h3>
+                                <span class="metric-value" id="metricSocketsValue">—</span>
+                            </div>
+                            <canvas id="metricSocketsChart" width="120" height="24" aria-hidden="true"></canvas>
+                        </div>
+                    </div>
+                </div>
                 <span id="singleUserBadge" class="single-user-badge" style="display:none;" title="Token endpoint returns SINGLE-USER in this mode">Single-user mode</span>
                 <div class="hub-settings">
                     <button type="button" class="hub-settings-toggle" id="hubSettingsToggle"
@@ -938,6 +1044,16 @@
         const MAX_RECONNECT_ATTEMPTS = 5;
         const RECONNECT_BASE_MS = 2000;
         const SNAPSHOT_URL = '/api/hub/admin/snapshot';
+        const METRICS_URL = '/api/hub/admin/metrics';
+        const METRICS_POLL_MS = 2000;
+        const METRICS_HISTORY_LEN = 60;
+
+        const metricsHistory = {
+            memory: [],
+            cpu: [],
+            sockets: [],
+        };
+        let metricsPollTimer = null;
 
         /** IHE actor keywords and full names (aligned with Cast client ACTOR_PRESETS). */
         const IHE_ACTOR_REFERENCE = [
@@ -952,6 +1068,153 @@
 
         let lastRevision = 0;
         let lastAdminClientCount;
+
+        function pushMetricSample(key, value) {
+            const arr = metricsHistory[key];
+            arr.push(value);
+            if (arr.length > METRICS_HISTORY_LEN) {
+                arr.shift();
+            }
+        }
+
+        function drawSparkline(canvas, values) {
+            if (!canvas || !values.length) {
+                return;
+            }
+            const rect = canvas.getBoundingClientRect();
+            const w = Math.max(1, Math.floor(rect.width));
+            const h = Math.max(1, Math.floor(rect.height));
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = w * dpr;
+            canvas.height = h * dpr;
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+            const style = getComputedStyle(document.documentElement);
+            const lineColor =
+                style.getPropertyValue('--accent').trim() || '#6eb5ff';
+            const fillColor =
+                style.getPropertyValue('--channel-ws-bg').trim() || '#1e3a52';
+            let min = Math.min(...values);
+            let max = Math.max(...values);
+            if (min === max) {
+                min -= 1;
+                max += 1;
+            }
+            const pad = 4;
+            const innerH = h - pad * 2;
+            const innerW = w - pad * 2;
+            const pts = values.map((v, i) => {
+                const x =
+                    pad + (values.length === 1 ? 0 : (i / (values.length - 1)) * innerW);
+                const y = pad + innerH - ((v - min) / (max - min)) * innerH;
+                return [x, y];
+            });
+            ctx.beginPath();
+            ctx.moveTo(pts[0][0], h - pad);
+            pts.forEach((p) => ctx.lineTo(p[0], p[1]));
+            ctx.lineTo(pts[pts.length - 1][0], h - pad);
+            ctx.closePath();
+            ctx.fillStyle = fillColor;
+            ctx.globalAlpha = 0.45;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.beginPath();
+            pts.forEach((p, i) => {
+                if (i === 0) {
+                    ctx.moveTo(p[0], p[1]);
+                } else {
+                    ctx.lineTo(p[0], p[1]);
+                }
+            });
+            ctx.strokeStyle = lineColor;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+
+        function redrawAllMetricCharts() {
+            drawSparkline(
+                document.getElementById('metricMemoryChart'),
+                metricsHistory.memory
+            );
+            drawSparkline(
+                document.getElementById('metricCpuChart'),
+                metricsHistory.cpu
+            );
+            drawSparkline(
+                document.getElementById('metricSocketsChart'),
+                metricsHistory.sockets
+            );
+        }
+
+        async function pollMetrics() {
+            try {
+                const response = await fetch(METRICS_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const data = await response.json();
+                const memMb = Number(data.memory_rss_mb);
+                const payloadMb = Number(data.memory_payload_mb);
+                const cpu = Number(data.cpu_percent);
+                const sockets = data.sockets || {};
+                const wsTotal = Number(sockets.websocket_total);
+
+                if (Number.isFinite(memMb)) {
+                    pushMetricSample('memory', memMb);
+                    document.getElementById('metricMemoryValue').textContent =
+                        `${memMb.toFixed(1)} MB`;
+                    const sub = document.getElementById('metricMemorySub');
+                    if (sub && Number.isFinite(payloadMb) && payloadMb > 0) {
+                        sub.textContent = `Payload store: ${payloadMb.toFixed(1)} MB`;
+                    } else if (sub) {
+                        sub.textContent = '';
+                    }
+                }
+                if (Number.isFinite(cpu)) {
+                    const cpuDisplay = Math.min(cpu, 100);
+                    pushMetricSample('cpu', cpuDisplay);
+                    document.getElementById('metricCpuValue').textContent =
+                        `${cpuDisplay.toFixed(1)}%`;
+                }
+                if (Number.isFinite(wsTotal)) {
+                    pushMetricSample('sockets', wsTotal);
+                    document.getElementById('metricSocketsValue').textContent =
+                        String(wsTotal);
+                    const card = document.getElementById('metricSocketsCard');
+                    if (card) {
+                        const sub = Number(sockets.websocket_subscribers);
+                        const adm = Number(sockets.websocket_admin);
+                        let tip = `Subscribers: ${sub}, Admin: ${adm}`;
+                        if (sockets.tcp_connections != null) {
+                            tip += `, TCP: ${sockets.tcp_connections}`;
+                        }
+                        card.title = tip;
+                    }
+                }
+                redrawAllMetricCharts();
+            } catch (err) {
+                console.warn('Metrics poll failed:', err);
+                document.getElementById('metricMemoryValue').textContent = '—';
+                document.getElementById('metricCpuValue').textContent = '—';
+                document.getElementById('metricSocketsValue').textContent = '—';
+            }
+        }
+
+        function startMetricsPolling() {
+            if (metricsPollTimer) {
+                return;
+            }
+            pollMetrics();
+            metricsPollTimer = setInterval(pollMetrics, METRICS_POLL_MS);
+        }
+
+        function stopMetricsPolling() {
+            if (metricsPollTimer) {
+                clearInterval(metricsPollTimer);
+                metricsPollTimer = null;
+            }
+        }
 
         function buildSnapshotQuery() {
             const params = new URLSearchParams();
@@ -1577,7 +1840,7 @@
                 <h3>Reset Server</h3>
                 <p>Are you sure you want to reset the hub? This will delete all subscriptions, conferences, and message log entries. This action cannot be undone.</p>
                 <label>
-                    <input type="checkbox" id="singleUserModeCheckbox">
+                    <input type="checkbox" id="singleUserModeCheckbox" checked>
                     <span>Single-user mode</span>
                 </label>
                 <div class="modal-actions">
@@ -1759,10 +2022,16 @@
         window.addEventListener('load', function() {
             connectAdminWebSocket();
             loadSnapshot();
+            startMetricsPolling();
+        });
+
+        window.addEventListener('resize', function() {
+            redrawAllMetricCharts();
         });
 
         // Clean up on page unload
         window.addEventListener('beforeunload', function() {
+            stopMetricsPolling();
             if (adminWebSocket) {
                 adminWebSocket.close();
             }

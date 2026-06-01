@@ -88,6 +88,10 @@ class CastInterfaceWidget(ScriptedLoadableModuleWidget):
         ScriptedLoadableModuleWidget.setup(self)
         self.layout.setSpacing(10)
 
+        hubSection, hubInner = self._collapsible_group_box(_("Hub"), expanded=True)
+        self.layout.addWidget(hubSection)
+        self.hubWidget.setup(hubInner)
+
         resourceServersSection, resourceServersInner = self._collapsible_group_box(
             _("Resource Servers"), expanded=True
         )
@@ -99,10 +103,6 @@ class CastInterfaceWidget(ScriptedLoadableModuleWidget):
         )
         self.layout.addWidget(clientSection)
         self.imageDisplayClientWidget.setup(clientInner)
-
-        hubSection, hubInner = self._collapsible_group_box(_("Hub"), expanded=False)
-        self.layout.addWidget(hubSection)
-        self.hubWidget.setup(hubInner)
 
         self.layout.addStretch(1)
 
