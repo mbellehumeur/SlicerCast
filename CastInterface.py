@@ -40,7 +40,7 @@ class CastInterface(ScriptedLoadableModule):
         self.parent.acknowledgementText = _(
             """
             Cast client protocol aligned with vtk-js CastClient. <br>
-            The hub python script (cast_api.py) is the same as VolView server hub.
+            The Cast hub server lives in this extension under cast_api/ (port 2018).
             """
         )
 

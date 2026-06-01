@@ -122,6 +122,8 @@ covers DICOM slices, NIfTI volumes, and other binary-family events.
 Before forwarding the JSON file metadata to the recipients over websocket, the hub adds the short-live payloadId to each file metadata so that they can be downloaded.
 For DICOM files, the DICOM metadata of each file is therefore available before the download.  Recipients can select which file they actually need and download those in the order they want.  This provides something similar to DICOM association but at file level and with all info availabl instead of only SOP class UID and transfer syntaxes.  For example, if a complete study is sent to  Total Segmentator, the handler script can choose to only down one series of thin slices; saving time and bandwidth.
 
+The file and DICOM metadata information has to be created by the client publishing the event since the hub does open contaxt data.  
+
 
 Resource servers (e.g. TotalSegmentator) receive metadata on the socket, then
 `fetch_all_payloads` fills `files[].data` before your `onMessage` script runs.

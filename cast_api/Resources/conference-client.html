@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VolView Cast Conference</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #212121;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #212121;
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        h1 img {
+            height: 40px;
+        }
+        h1 span {
+            color: #0068C7;
+            font-weight: 400;
+            line-height: 1;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #757575;
+            font-size: 14px;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #c8c8c8;
+            border-radius: 4px;
+            background-color: #ffffff;
+            color: #212121;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #0068C7;
+        }
+        input:disabled {
+            background-color: #fafafa;
+            color: #bdbdbd;
+            cursor: not-allowed;
+        }
+        button {
+            padding: 8px 16px;
+            border: 1px solid #c8c8c8;
+            border-radius: 4px;
+            background-color: #f5f5f5;
+            color: #212121;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+        button:hover:not(:disabled) {
+            background-color: #e8e8e8;
+            border-color: #bdbdbd;
+        }
+        button:disabled {
+            background-color: #fafafa;
+            color: #bdbdbd;
+            cursor: not-allowed;
+            border-color: #e0e0e0;
+        }
+        button.primary {
+            background-color: #0068C7;
+            color: white;
+            border: 1px solid #005bb5;
+        }
+        button.primary:hover:not(:disabled) {
+            background-color: #005bb5;
+            border-color: #0068C7;
+        }
+        .status {
+            padding: 12px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .status.success {
+            border-left: 3px solid #4CAF50;
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .status.error {
+            border-left: 3px solid #ff9800;
+            background-color: #fff3e0;
+            color: #e65100;
+        }
+        .info-box {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #0068C7;
+        }
+        .info-box strong {
+            color: #212121;
+        }
+        .topics-panel {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #c8c8c8;
+            border-radius: 4px;
+            padding: 10px;
+            background-color: #ffffff;
+        }
+        .topics-panel .muted {
+            color: #9e9e9e;
+            font-style: italic;
+        }
+        .topic-checkbox {
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+        }
+        .topic-checkbox input[type="checkbox"] {
+            width: auto;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        .topic-checkbox label {
+            margin: 0;
+            cursor: pointer;
+            color: #212121;
+            font-weight: normal;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+            color: #212121;
+        }
+        th {
+            background-color: #f5f5f5;
+            font-weight: 600;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        .topic {
+            font-weight: 500;
+            color: #0068C7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            <img src="/static/images/volview-logo.svg" alt="VolView">
+            <span>Cast Conference</span>
+        </h1>
+
+        <div id="statusMessage"></div>
+
+        <div id="createConferenceSection">
+            <h2>Create Conference</h2>
+            <form id="conferenceForm" onsubmit="createConference(event)">
+            <div class="form-group">
+                <label for="title">Conference Title:</label>
+                <select id="title" required onchange="handleTitleChange()">
+                    <option value="">Select a conference title</option>
+                    <option value="Test conference" selected>Test conference</option>
+                    <option value="Tumor Board">Tumor Board</option>
+                    <option value="Case review">Case discussion</option>
+                    <option value="Pedicle screw">Pedicle screw</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="form-group" id="otherTitleGroup" style="display: none;">
+                <label for="otherTitle">Other Title:</label>
+                <input type="text" id="otherTitle" placeholder="Enter custom conference title">
+            </div>
+            <div class="form-group">
+                <label>Select Topics:</label>
+                <div id="topicsList" class="topics-panel">
+                    <p class="muted">Loading topics...</p>
+                </div>
+            </div>
+            <button type="submit" id="createButton" class="primary">Create Conference</button>
+            </form>
+        </div>
+
+        <div id="manageConferenceSection" style="display: none;">
+            <h2>Manage Conference</h2>
+            <div id="conferenceInfo" class="info-box">
+                <p><strong>Conference Title:</strong> <span id="conferenceTitleDisplay">-</span></p>
+                <p><strong>User:</strong> <span id="conferenceUserDisplay">-</span></p>
+                <p><strong>Topics:</strong> <span id="conferenceTopicsDisplay">-</span></p>
+            </div>
+            <button id="exitConferenceButton" class="primary" onclick="exitConference()">Exit Conference</button>
+        </div>
+
+        <h2>Active Conferences</h2>
+        <div id="conferencesList">
+            <p class="muted">Loading conferences...</p>
+        </div>
+        <button class="primary" onclick="loadConferences()">Refresh</button>
+    </div>
+
+    <script>
+        const CONFERENCE_API = '/api/hub/conference';
+        const CONFERENCE_TOPICS_API = '/api/hub/conference-topics';
+
+        let subscriberName = null;
+        let topicName = null;
+        let allTopics = [];
+        let currentConference = null;
+
+        function getUrlParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            subscriberName = urlParams.get('subscriberName') || urlParams.get('user');
+            topicName = urlParams.get('topic');
+        }
+
+        async function loadTopics() {
+            const topicsDiv = document.getElementById('topicsList');
+
+            try {
+                const response = await fetch(CONFERENCE_TOPICS_API);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const topics = await response.json();
+                allTopics = (topics || []).filter(
+                    (topic) => String(topic).trim() !== '*'
+                );
+
+                if (allTopics.length > 0) {
+                    let html = '';
+                    allTopics.forEach(topic => {
+                        const isChecked = topicName && (topic === topicName || topic.toLowerCase() === topicName.toLowerCase()) ? 'checked' : '';
+                        html += `
+                            <div class="topic-checkbox">
+                                <input type="checkbox" id="topic-${escapeHtml(topic)}" name="topics" value="${escapeHtml(topic)}" ${isChecked}>
+                                <label for="topic-${escapeHtml(topic)}">${escapeHtml(topic)}</label>
+                            </div>
+                        `;
+                    });
+                    topicsDiv.innerHTML = html;
+                } else {
+                    topicsDiv.innerHTML = '<p class="muted">No topics available</p>';
+                }
+            } catch (error) {
+                console.error('Error loading topics:', error);
+                topicsDiv.innerHTML = `<p class="status error">Error loading topics: ${escapeHtml(error.message)}</p>`;
+            }
+        }
+
+        function getSelectedTopics() {
+            const checkboxes = document.querySelectorAll('input[name="topics"]:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+
+        function handleTitleChange() {
+            const titleSelect = document.getElementById('title');
+            const otherTitleGroup = document.getElementById('otherTitleGroup');
+            if (titleSelect.value === 'other') {
+                otherTitleGroup.style.display = 'block';
+            } else {
+                otherTitleGroup.style.display = 'none';
+                document.getElementById('otherTitle').value = '';
+            }
+        }
+
+        async function createConference(event) {
+            event.preventDefault();
+
+            const statusDiv = document.getElementById('statusMessage');
+            const createButton = document.getElementById('createButton');
+            const titleSelect = document.getElementById('title');
+            let title = titleSelect.value.trim();
+
+            if (!subscriberName) {
+                statusDiv.innerHTML = '<div class="status error">Subscriber must be provided in URL parameters (e.g., ?subscriber=user1)</div>';
+                return;
+            }
+
+            if (!title || title === '') {
+                statusDiv.innerHTML = '<div class="status error">Conference title is required</div>';
+                return;
+            }
+
+            if (title === 'other') {
+                const otherTitle = document.getElementById('otherTitle').value.trim();
+                if (!otherTitle) {
+                    statusDiv.innerHTML = '<div class="status error">Please enter a custom conference title</div>';
+                    return;
+                }
+                title = otherTitle;
+            }
+
+            const selectedTopics = getSelectedTopics();
+            if (selectedTopics.length === 0) {
+                statusDiv.innerHTML = '<div class="status error">Please select at least one topic</div>';
+                return;
+            }
+
+            createButton.disabled = true;
+            createButton.textContent = 'Creating...';
+            statusDiv.innerHTML = '';
+
+            try {
+                const response = await fetch(CONFERENCE_API, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user: subscriberName,
+                        title: title,
+                        topics: selectedTopics
+                    })
+                });
+
+                if (response.ok) {
+                    statusDiv.innerHTML = '<div class="status success">Conference created successfully!</div>';
+                    titleSelect.value = '';
+                    document.getElementById('otherTitle').value = '';
+                    document.getElementById('otherTitleGroup').style.display = 'none';
+                    await loadConferences();
+                    setTimeout(() => {
+                        statusDiv.innerHTML = '';
+                    }, 3000);
+                } else {
+                    const errorText = await response.text();
+                    throw new Error(`Failed to create conference: ${response.status} - ${errorText}`);
+                }
+            } catch (error) {
+                console.error('Error creating conference:', error);
+                statusDiv.innerHTML = `<div class="status error">Error: ${escapeHtml(error.message)}</div>`;
+            } finally {
+                createButton.disabled = false;
+                createButton.textContent = 'Create Conference';
+            }
+        }
+
+        function checkTopicInConference(conferences) {
+            if (!topicName || !conferences) {
+                return null;
+            }
+
+            for (const conf of conferences) {
+                const topics = Array.isArray(conf.topics) ? conf.topics : [conf.topics];
+                if (topics.some(t => t === topicName || t.toLowerCase() === topicName.toLowerCase())) {
+                    return conf;
+                }
+            }
+            return null;
+        }
+
+        function updateConferenceSections(conferences) {
+            currentConference = checkTopicInConference(conferences);
+            const createSection = document.getElementById('createConferenceSection');
+            const manageSection = document.getElementById('manageConferenceSection');
+
+            if (currentConference) {
+                createSection.style.display = 'none';
+                manageSection.style.display = 'block';
+
+                const topics = Array.isArray(currentConference.topics) ? currentConference.topics.join(', ') : currentConference.topics;
+                document.getElementById('conferenceTitleDisplay').textContent = currentConference.title || 'N/A';
+                document.getElementById('conferenceUserDisplay').textContent = currentConference.user || 'N/A';
+                document.getElementById('conferenceTopicsDisplay').textContent = topics || 'None';
+            } else {
+                createSection.style.display = 'block';
+                manageSection.style.display = 'none';
+            }
+        }
+
+        async function loadConferences() {
+            const conferencesDiv = document.getElementById('conferencesList');
+
+            try {
+                const response = await fetch(CONFERENCE_API);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const conferences = await response.json();
+
+                updateConferenceSections(conferences);
+
+                if (conferences && conferences.length > 0) {
+                    let html = '<table><thead><tr><th>Title</th><th>User</th><th>Topics</th></tr></thead><tbody>';
+
+                    conferences.forEach(conf => {
+                        const topics = Array.isArray(conf.topics) ? conf.topics.join(', ') : conf.topics;
+                        html += `<tr>
+                            <td>${escapeHtml(conf.title || 'N/A')}</td>
+                            <td>${escapeHtml(conf.user || 'N/A')}</td>
+                            <td class="topic">${escapeHtml(topics || 'None')}</td>
+                        </tr>`;
+                    });
+
+                    html += '</tbody></table>';
+                    conferencesDiv.innerHTML = html;
+                } else {
+                    conferencesDiv.innerHTML = '<p class="muted">No active conferences</p>';
+                }
+            } catch (error) {
+                console.error('Error loading conferences:', error);
+                conferencesDiv.innerHTML = `<p class="status error">Error loading conferences: ${escapeHtml(error.message)}</p>`;
+            }
+        }
+
+        async function exitConference() {
+            if (!currentConference || !subscriberName) {
+                alert('Cannot exit conference: missing information');
+                return;
+            }
+
+            const statusDiv = document.getElementById('statusMessage');
+            const exitButton = document.getElementById('exitConferenceButton');
+
+            if (!confirm('Are you sure you want to exit this conference?')) {
+                return;
+            }
+
+            exitButton.disabled = true;
+            exitButton.textContent = 'Exiting...';
+            statusDiv.innerHTML = '';
+
+            try {
+                const response = await fetch(CONFERENCE_API, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user: currentConference.user
+                    })
+                });
+
+                if (response.ok) {
+                    statusDiv.innerHTML = '<div class="status success">Successfully exited conference!</div>';
+                    await loadConferences();
+                    await loadTopics();
+                    setTimeout(() => {
+                        statusDiv.innerHTML = '';
+                    }, 3000);
+                } else {
+                    const errorText = await response.text();
+                    throw new Error(`Failed to exit conference: ${response.status} - ${errorText}`);
+                }
+            } catch (error) {
+                console.error('Error exiting conference:', error);
+                statusDiv.innerHTML = `<div class="status error">Error: ${escapeHtml(error.message)}</div>`;
+            } finally {
+                exitButton.disabled = false;
+                exitButton.textContent = 'Exit Conference';
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        window.addEventListener('load', function() {
+            getUrlParams();
+            loadTopics();
+            loadConferences();
+        });
+    </script>
+</body>
+</html>
